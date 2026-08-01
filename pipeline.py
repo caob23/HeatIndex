@@ -74,7 +74,12 @@ def get_stock_daily(symbol: str, start_date: str, end_date: str) -> pd.DataFrame
     返回 DataFrame，列: date, open, close, high, low, volume, amount。
     """
     prefix = "sh" if symbol.startswith("6") else "sz"
-    params = f"{prefix}{symbol},day,{start_date},{end_date},2000,qfq"
+    # 腾讯API要求 YYYY-MM-DD
+    def _fmt(d: str) -> str:
+        if len(d) == 8:
+            return f"{d[:4]}-{d[4:6]}-{d[6:]}"
+        return d
+    params = f"{prefix}{symbol},day,{_fmt(start_date)},{_fmt(end_date)},2000,qfq"
 
     for retry in range(3):
         try:
