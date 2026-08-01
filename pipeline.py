@@ -94,14 +94,20 @@ def fetch_guba_posts(code: str, start_date: str) -> list[dict]:
         else:
             url = f"https://guba.eastmoney.com/list,{code}_{page}.html"
 
-        try:
-            headers = _browser_headers()
-            resp = requests.get(url, headers=headers, timeout=15)
-            resp.encoding = "utf-8"
-            html = resp.text
-        except Exception as e:
-            print(f"  [股吧] 第{page}页请求失败: {e}")
-            time.sleep(2)
+        html = ""
+        for retry in range(3):
+            try:
+                headers = _browser_headers()
+                resp = requests.get(url, headers=headers, timeout=20)
+                resp.encoding = "utf-8"
+                html = resp.text
+                break
+            except Exception as e:
+                wait = (retry + 1) * 3
+                print(f"  [股吧] 第{page}页第{retry+1}次失败: {e}，{wait}s后重试...")
+                time.sleep(wait)
+        if not html:
+            print(f"  [股吧] 第{page}页重试3次均失败，跳过")
             continue
 
         # 新结构：<tr class="listitem"> + <div class="read"> / <div class="reply"> / <div class="update">
