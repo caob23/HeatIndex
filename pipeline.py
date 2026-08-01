@@ -222,49 +222,60 @@ def calc_buzz_index(posts: list[dict], target_date: str) -> float:
 
 
 def run():
-    end_date = datetime.now().strftime("%Y%m%d")
-    start_date = (datetime.now() - timedelta(days=30)).strftime("%Y%m%d")
+    end_dt = datetime.now()
+    start_dt = end_dt - timedelta(days=30)
+    end_date = end_dt.strftime("%Y%m%d")
+    start_date = start_dt.strftime("%Y%m%d")
 
     print(f"[HeatIndex] 采集 {SYMBOL} {SYMBOL_NAME}")
     print(f"  日期范围: {start_date} → {end_date}")
 
+    # 生成全部日历日（含非交易日）
+    all_dates = []
+    d = start_dt
+    while d <= end_dt:
+        all_dates.append(d.strftime("%Y-%m-%d"))
+        d += timedelta(days=1)
+
     print("[HeatIndex] 步骤 1/3: 获取价格数据...")
     price_df = get_stock_daily(SYMBOL, start_date, end_date)
-    print(f"  → 获取 {len(price_df)} 条价格记录")
+    price_map = {}
+    if not price_df.empty:
+        for _, row in price_df.iterrows():
+            price_map[row["date"]] = row
+    print(f"  → 获取 {len(price_map)} 条价格记录 ({len(all_dates)} 个日历日)")
 
-    guba_start = (datetime.now() - timedelta(days=37)).strftime("%Y%m%d")
+    guba_start = (end_dt - timedelta(days=60)).strftime("%Y%m%d")
     print(f"[HeatIndex] 步骤 2/3: 爬取股吧帖子（{guba_start} 以来）...")
     posts = fetch_guba_posts(GUBA_CODE, guba_start)
 
     print("[HeatIndex] 步骤 3/3: 计算热度指数并输出...")
     records = []
-    if not price_df.empty:
-        price_df = price_df.sort_values("date")
-        for _, row in price_df.iterrows():
-            date_str = row["date"]
-            buzz = calc_buzz_index(posts, date_str)
+    last_close = None
+    for ds in all_dates:
+        buzz = calc_buzz_index(posts, ds)
+        row = price_map.get(ds)
+        if row is not None:
+            last_close = float(row["close"])
             records.append({
-                "date": date_str,
+                "date": ds,
                 "buzz_index": buzz,
-                "close": float(row["close"]),
+                "close": last_close,
                 "open": float(row["open"]),
                 "high": float(row["high"]),
                 "low": float(row["low"]),
                 "volume": int(row["volume"]),
                 "amount": float(row["amount"]),
+                "is_trading": True,
             })
-    else:
-        date_range = pd.date_range(
-            start=start_date[:4] + "-" + start_date[4:6] + "-" + start_date[6:],
-            end=end_date[:4] + "-" + end_date[4:6] + "-" + end_date[6:],
-        )
-        for d in date_range:
-            ds = d.strftime("%Y-%m-%d")
+        else:
             records.append({
                 "date": ds,
-                "buzz_index": calc_buzz_index(posts, ds),
-                "close": None, "open": None, "high": None, "low": None,
+                "buzz_index": buzz,
+                "close": last_close,
+                "open": None, "high": None, "low": None,
                 "volume": None, "amount": None,
+                "is_trading": False,
             })
 
     dashboard = {

@@ -98,9 +98,10 @@
   }
   .legend-dot.buzz { background: var(--buzz-color); }
   .legend-dot.price { background: var(--price-color); }
+  .legend-dot.weekend { background: #E0E0E0; }
   #chart {
     width: 100%;
-    height: 440px;
+    height: 480px;
   }
   .stats {
     display: grid;
@@ -170,7 +171,7 @@
         <span class="legend-dot buzz"></span> 热度指数 (0 – 273)
       </div>
       <div class="legend-item">
-        <span class="legend-dot price"></span> 收盘价
+        <span class="legend-dot price"></span> 收盘价（虚线 = 非交易日沿用）
       </div>
     </div>
     <div id="chart"></div>
@@ -210,11 +211,29 @@
 
   const dates = records.map(r => r.date);
   const buzz = records.map(r => r.buzz_index ?? null);
-  const prices = records.map(r => r.close ?? null);
+
+  // ── 价格数据：非交易日线型改为虚线 ──
+  const priceData = records.map((r, i) => {
+    const item = { value: r.close ?? null };
+    // 上一日为交易日、当前为非交易日 → 这一段虚线（水平延续）
+    const prevIsTrading = i > 0 && records[i - 1].is_trading;
+    const curIsTrading = r.is_trading;
+    if (!curIsTrading) {
+      item.lineStyle = { type: 'dashed', width: 1.5 };
+      item.symbol = 'none';
+      item.symbolSize = 0;
+    } else if (i > 0 && !prevIsTrading && curIsTrading) {
+      // 非交易日后的第一个交易日，恢复实线
+      item.lineStyle = { type: 'solid' };
+    }
+    return item;
+  });
 
   // ── 概览统计 ──
-  const latest = records[records.length - 1];
-  const prev = records.length > 1 ? records[records.length - 2] : null;
+  const latestTrading = [...records].reverse().find(r => r.is_trading) || records[records.length - 1];
+  const prevTrading = records.filter(r => r.is_trading).slice(-2);
+  const latest = latestTrading;
+  const prev = prevTrading.length > 1 ? prevTrading[0] : null;
   const latestBuzz = latest.buzz_index ?? 0;
   const latestPrice = latest.close ?? 0;
   const prevPrice = prev?.close ?? latestPrice;
@@ -245,17 +264,30 @@
     </div>
     <div class="stat-box">
       <div class="label">最高价</div>
-      <div class="value">${(latest.high ?? 0).toFixed(2)}</div>
+      <div class="value">${(latest.high ?? latestPrice).toFixed(2)}</div>
     </div>
     <div class="stat-box">
       <div class="label">最低价</div>
-      <div class="value">${(latest.low ?? 0).toFixed(2)}</div>
+      <div class="value">${(latest.low ?? latestPrice).toFixed(2)}</div>
     </div>
     <div class="stat-box">
       <div class="label">成交量</div>
       <div class="value">${((latest.volume ?? 0) / 10000).toFixed(0)}<span style="font-size:14px;color:#9E9E9E">万手</span></div>
     </div>
   `;
+
+  // ── 标记非交易日（周六日浅色背景） ──
+  const weekendMarks = [];
+  records.forEach((r, i) => {
+    const d = new Date(r.date);
+    const dow = d.getDay();
+    if (dow === 0 || dow === 6) {
+      weekendMarks.push({
+        xAxis: r.date,
+        itemStyle: { color: 'rgba(0,0,0,0.04)' },
+      });
+    }
+  });
 
   // ── 折线图 ──
   const chart = echarts.init(document.getElementById('chart'));
@@ -268,22 +300,26 @@
       textStyle: { color: '#212121', fontSize: 13 },
       formatter: function (params) {
         let s = '<b>' + params[0].axisValue + '</b><br/>';
+        const rec = records[params[0].dataIndex];
         params.forEach(p => {
-          const val = p.value;
+          const val = p.value && typeof p.value === 'object' ? p.value.value : p.value;
           if (val == null) return;
           if (p.seriesName === '热度指数') {
             s += '<span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:#7C4DFF;margin-right:6px;"></span>';
-            s += '热度指数：<b style="color:#7C4DFF">' + val + '</b><br/>';
+            s += '热度指数：<b style="color:#7C4DFF">' + val + '</b>';
+            if (!rec.is_trading) s += ' <span style="color:#9E9E9E;font-size:11px">(非交易日)</span>';
+            s += '<br/>';
           } else {
             s += '<span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:#9E9E9E;margin-right:6px;"></span>';
             s += '收盘价：<b>' + val.toFixed(2) + '</b>';
+            if (!rec.is_trading) s += ' <span style="color:#9E9E9E;font-size:11px">(沿用上日)</span>';
           }
         });
         return s;
       }
     },
     legend: { show: false },
-    grid: { left: 64, right: 72, top: 24, bottom: 32 },
+    grid: { left: 80, right: 92, top: 40, bottom: 36 },
     xAxis: {
       type: 'category',
       data: dates,
@@ -294,30 +330,37 @@
         fontSize: 11,
         formatter: v => v.slice(5),
       },
+      markArea: weekendMarks.length ? {
+        silent: true,
+        data: weekendMarks,
+      } : undefined,
     },
     yAxis: [
       {
         type: 'value',
         name: '热度指数',
-        nameTextStyle: { color: '#7C4DFF', fontSize: 12 },
+        nameTextStyle: { color: '#7C4DFF', fontSize: 12, padding: [0, 0, 0, 0] },
+        nameGap: 12,
         min: 0,
         max: 273,
         interval: 68,
         axisLine: { show: false },
         axisTick: { show: false },
         splitLine: { lineStyle: { color: '#F0F0F0', type: 'dashed' } },
-        axisLabel: { color: '#7C4DFF', fontSize: 11 },
+        axisLabel: { color: '#7C4DFF', fontSize: 11, margin: 8 },
       },
       {
         type: 'value',
         name: '收盘价',
-        nameTextStyle: { color: '#9E9E9E', fontSize: 12 },
+        nameTextStyle: { color: '#9E9E9E', fontSize: 12, padding: [0, 0, 0, 0] },
+        nameGap: 12,
         axisLine: { show: false },
         axisTick: { show: false },
         splitLine: { show: false },
         axisLabel: {
           color: '#9E9E9E',
           fontSize: 11,
+          margin: 8,
           formatter: v => v.toFixed(2),
         },
       },
@@ -344,7 +387,7 @@
         name: '收盘价',
         type: 'line',
         yAxisIndex: 1,
-        data: prices,
+        data: priceData,
         smooth: 0.4,
         symbol: 'circle',
         symbolSize: 3,
