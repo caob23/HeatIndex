@@ -1,20 +1,24 @@
 """HeatIndex Pipeline
 采集成都银行(601838)每日价格 + 东方财富股吧热度 → 输出 dashboard_data.json
-独立脚本，无内部包依赖，供 GitHub Actions 调用。
+独立脚本，供 GitHub Actions 调用。
 """
 
 import json
 import math
 import os
-import time
 import re
+import time
+import html as html_mod
+import random
 from datetime import datetime, timedelta
 
 import akshare as ak
 import pandas as pd
 import requests
 
-# ── 配置 ──────────────────────────────────────────────
+# ═══════════════════════════════════════════════════
+# 配置
+# ═══════════════════════════════════════════════════
 SYMBOL = "601838"
 SYMBOL_NAME = "成都银行"
 GUBA_CODE = "601838"
@@ -26,110 +30,123 @@ WEIGHT_READ = 0.4
 WEIGHT_REPLY = 0.6
 HALF_LIFE_DAYS = 7
 
-GUBA_PAGE_SIZE = 50
 GUBA_MAX_PAGES = 10
-REQUEST_INTERVAL = 1.0
 
 DATA_DIR = "data"
 OUTPUT_FILE = "dashboard_data.json"
 
+# ═══════════════════════════════════════════════════
+# 反检测请求头（适配自 mommy-index）
+# ═══════════════════════════════════════════════════
+_USER_AGENTS = [
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36",
+]
+
+def _browser_headers(referer="https://guba.eastmoney.com"):
+    ua = random.choice(_USER_AGENTS)
+    version = ua.split("Chrome/")[1].split(".")[0]
+    return {
+        "User-Agent": ua,
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+        "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+        "Accept-Encoding": "gzip, deflate, br",
+        "DNT": "1",
+        "Connection": "keep-alive",
+        "Upgrade-Insecure-Requests": "1",
+        "Sec-Fetch-Dest": "document",
+        "Sec-Fetch-Mode": "navigate",
+        "Sec-Fetch-Site": "none",
+        "Sec-Fetch-User": "?1",
+        "Cache-Control": "max-age=0",
+        "Referer": referer,
+        "sec-ch-ua": f'"Not_A Brand";v="8", "Chromium";v="{version}", "Google Chrome";v="{version}"',
+        "sec-ch-ua-mobile": "?0",
+        "sec-ch-ua-platform": '"Windows"',
+    }
+
 
 def get_stock_daily(symbol: str, start_date: str, end_date: str) -> pd.DataFrame:
-    """通过 AKShare 获取 A 股日线数据。"""
     df = ak.stock_zh_a_hist(
-        symbol=symbol,
-        period="daily",
-        start_date=start_date,
-        end_date=end_date,
-        adjust=""
+        symbol=symbol, period="daily",
+        start_date=start_date, end_date=end_date, adjust=""
     )
     if df.empty:
         return df
     df = df.rename(columns={
-        "日期": "date",
-        "开盘": "open",
-        "收盘": "close",
-        "最高": "high",
-        "最低": "low",
-        "成交量": "volume",
-        "成交额": "amount",
+        "日期": "date", "开盘": "open", "收盘": "close",
+        "最高": "high", "最低": "low",
+        "成交量": "volume", "成交额": "amount",
     })
     df["date"] = df["date"].astype(str)
     return df
 
 
-def fetch_guba_posts(guba_code: str, start_date: str) -> list[dict]:
-    """爬取东方财富股吧帖子列表，返回 [{title, read_count, reply_count, post_date}]。
-
-    使用东方财富股吧 API，按发布时间降序遍历直到日期早于 start_date。
-    """
-    headers = {
-        "User-Agent": (
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-            "AppleWebKit/537.36 (KHTML, like Gecko) "
-            "Chrome/125.0.0.0 Safari/537.36"
-        ),
-        "Referer": f"https://guba.eastmoney.com/list,{guba_code}.html",
-    }
+def fetch_guba_posts(code: str, start_date: str) -> list[dict]:
+    """爬取股吧帖子，翻页直到日期早于 start_date。"""
     posts = []
     start_dt = datetime.strptime(start_date, "%Y%m%d")
 
     for page in range(1, GUBA_MAX_PAGES + 1):
-        url = (
-            "https://guba.eastmoney.com/interface/GetData.aspx"
-            f"?code={guba_code}&page={page}&pagesize={GUBA_PAGE_SIZE}"
-            "&type=1&sort=1"
-        )
+        if page == 1:
+            url = f"https://guba.eastmoney.com/list,{code}.html"
+        else:
+            url = f"https://guba.eastmoney.com/list,{code}_{page}.html"
+
         try:
+            headers = _browser_headers()
             resp = requests.get(url, headers=headers, timeout=15)
             resp.encoding = "utf-8"
             html = resp.text
-
-            pattern = (
-                r"<div class='articleh.*?'>.*?"
-                r"<span class='l3 a3'>.*?title='阅读'>(?P<read>\d+)</span>.*?"
-                r"<span class='l2 a2'>.*?title='回复'>(?P<reply>\d+)</span>.*?"
-                r"<span class='l5 a5'>(?P<date>\d{4}-\d{2}-\d{2})</span>"
-            )
-            matches = list(re.finditer(pattern, html, re.DOTALL))
-
-            if not matches:
-                break
-
-            for m in matches:
-                post_date = m.group("date")
-                try:
-                    dt = datetime.strptime(post_date, "%Y-%m-%d")
-                except ValueError:
-                    continue
-                if dt < start_dt:
-                    return posts
-                posts.append({
-                    "read_count": int(m.group("read")),
-                    "reply_count": int(m.group("reply")),
-                    "post_date": post_date,
-                })
-
-            if len(matches) < GUBA_PAGE_SIZE:
-                break
-            time.sleep(REQUEST_INTERVAL)
-
         except Exception as e:
-            print(f"  [股吧] 第 {page} 页请求失败: {e}")
+            print(f"  [股吧] 第{page}页请求失败: {e}")
             time.sleep(2)
             continue
 
+        # 新结构：<tr class="listitem"> + <div class="read"> / <div class="reply"> / <div class="update">
+        read_pat = re.compile(r'class="read">(\d+)<', re.DOTALL)
+        reply_pat = re.compile(r'class="reply">(\d+)<', re.DOTALL)
+        date_pat = re.compile(r'class="update">(\d{2}-\d{2}\s+\d{2}:\d{2})<', re.DOTALL)
+
+        reads = read_pat.findall(html)
+        replies = reply_pat.findall(html)
+        dates_raw = date_pat.findall(html)
+
+        page_posts = 0
+        reached_start = False
+
+        for i in range(min(len(reads), len(replies), len(dates_raw))):
+            date_str = dates_raw[i].strip()
+            try:
+                dt = datetime.strptime(date_str, "%m-%d %H:%M")
+                dt = dt.replace(year=datetime.now().year)
+            except ValueError:
+                continue
+
+            if dt < start_dt:
+                reached_start = True
+                break
+
+            posts.append({
+                "read_count": reads[i],
+                "reply_count": replies[i],
+                "post_date": dt.strftime("%Y-%m-%d"),
+            })
+            page_posts += 1
+
+        print(f"  [股吧] 第{page}页 → {page_posts} 条帖子")
+
+        if reached_start or page_posts < 40:
+            break
+
+        time.sleep(random.uniform(1.0, 2.0))
+
+    print(f"  [股吧] 总计 {len(posts)} 条帖子")
     return posts
 
 
 def calc_buzz_index(posts: list[dict], target_date: str) -> float:
-    """计算指定日期的热度指数，含时间衰减。
-
-    公式：对每个帖子，热度 = (read_count * WEIGHT_READ + reply_count * WEIGHT_REPLY)
-           衰减因子 = 2 ^ (-days_ago / HALF_LIFE_DAYS)
-           日热度 = Σ(热度 * 衰减因子)
-    归一化到 [0, BUZZ_SCALE_MAX]。
-    """
     target_dt = datetime.strptime(target_date, "%Y-%m-%d")
     total_score = 0.0
 
@@ -139,7 +156,7 @@ def calc_buzz_index(posts: list[dict], target_date: str) -> float:
         if days_ago < 0:
             continue
         decay = 2 ** (-days_ago / HALF_LIFE_DAYS)
-        heat = p["read_count"] * WEIGHT_READ + p["reply_count"] * WEIGHT_REPLY
+        heat = int(p["read_count"]) * WEIGHT_READ + int(p["reply_count"]) * WEIGHT_REPLY
         total_score += heat * decay
 
     if total_score == 0:
@@ -151,7 +168,6 @@ def calc_buzz_index(posts: list[dict], target_date: str) -> float:
 
 
 def run():
-    """主流程：采集价格 + 热度 → 输出 dashboard_data.json"""
     end_date = datetime.now().strftime("%Y%m%d")
     start_date = (datetime.now() - timedelta(days=30)).strftime("%Y%m%d")
 
@@ -162,10 +178,9 @@ def run():
     price_df = get_stock_daily(SYMBOL, start_date, end_date)
     print(f"  → 获取 {len(price_df)} 条价格记录")
 
-    print("[HeatIndex] 步骤 2/3: 爬取股吧帖子...")
     guba_start = (datetime.now() - timedelta(days=37)).strftime("%Y%m%d")
+    print(f"[HeatIndex] 步骤 2/3: 爬取股吧帖子（{guba_start} 以来）...")
     posts = fetch_guba_posts(GUBA_CODE, guba_start)
-    print(f"  → 获取 {len(posts)} 条帖子")
 
     print("[HeatIndex] 步骤 3/3: 计算热度指数并输出...")
     records = []
@@ -191,9 +206,9 @@ def run():
         )
         for d in date_range:
             ds = d.strftime("%Y-%m-%d")
-            buzz = calc_buzz_index(posts, ds)
             records.append({
-                "date": ds, "buzz_index": buzz,
+                "date": ds,
+                "buzz_index": calc_buzz_index(posts, ds),
                 "close": None, "open": None, "high": None, "low": None,
                 "volume": None, "amount": None,
             })
