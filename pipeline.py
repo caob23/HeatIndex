@@ -68,10 +68,20 @@ def _browser_headers(referer="https://guba.eastmoney.com"):
 
 
 def get_stock_daily(symbol: str, start_date: str, end_date: str) -> pd.DataFrame:
-    df = ak.stock_zh_a_hist(
-        symbol=symbol, period="daily",
-        start_date=start_date, end_date=end_date, adjust=""
-    )
+    for retry in range(3):
+        try:
+            df = ak.stock_zh_a_hist(
+                symbol=symbol, period="daily",
+                start_date=start_date, end_date=end_date, adjust=""
+            )
+            break
+        except Exception as e:
+            wait = (retry + 1) * 3
+            print(f"  [股价] 第{retry+1}次失败: {e}，{wait}s后重试...")
+            time.sleep(wait)
+    else:
+        print(f"  [股价] 重试3次均失败，返回空数据")
+        return pd.DataFrame()
     if df.empty:
         return df
     df = df.rename(columns={
