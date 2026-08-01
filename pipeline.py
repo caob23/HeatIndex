@@ -12,7 +12,6 @@ import html as html_mod
 import random
 from datetime import datetime, timedelta
 
-import akshare as ak
 import pandas as pd
 import requests
 
@@ -67,30 +66,64 @@ def _browser_headers(referer="https://guba.eastmoney.com"):
     }
 
 
+# 腾讯财经日K线 API
+KLINE_URL = "http://web.ifzq.gtimg.cn/appstock/app/fqkline/get"
+
 def get_stock_daily(symbol: str, start_date: str, end_date: str) -> pd.DataFrame:
+    """通过腾讯财经 API 获取前复权日K线。
+    返回 DataFrame，列: date, open, close, high, low, volume, amount。
+    """
+    prefix = "sh" if symbol.startswith("6") else "sz"
+    params = f"{prefix}{symbol},day,{start_date},{end_date},2000,qfq"
+
     for retry in range(3):
         try:
-            df = ak.stock_zh_a_hist(
-                symbol=symbol, period="daily",
-                start_date=start_date, end_date=end_date, adjust=""
+            resp = requests.get(
+                f"{KLINE_URL}?param={params}",
+                headers={"User-Agent": "Mozilla/5.0"},
+                timeout=20,
             )
-            break
+            resp.raise_for_status()
+            data = resp.json()
+
+            if data.get("code") != 0:
+                raise ValueError(f"API 错误: {data.get('msg')}")
+
+            key = f"{prefix}{symbol}"
+            raw = data.get("data", {}).get(key, {}).get("qfqday", [])
+            if not raw:
+                print(f"  [腾讯] {symbol} 无数据")
+                return pd.DataFrame()
+
+            rows = []
+            for item in raw:
+                # 第7项可能是分红字典，跳过
+                if not isinstance(item, list) or len(item) < 6:
+                    continue
+                dt_str = item[0]
+                # 统一为 YYYY-MM-DD
+                if len(dt_str) == 8:
+                    dt = f"{dt_str[:4]}-{dt_str[4:6]}-{dt_str[6:]}"
+                else:
+                    dt = dt_str
+                rows.append({
+                    "date": dt,
+                    "open": float(item[1]),
+                    "close": float(item[2]),
+                    "high": float(item[3]),
+                    "low": float(item[4]),
+                    "volume": int(float(item[5])),
+                    "amount": 0,  # 腾讯API无成交额
+                })
+            return pd.DataFrame(rows)
+
         except Exception as e:
             wait = (retry + 1) * 3
-            print(f"  [股价] 第{retry+1}次失败: {e}，{wait}s后重试...")
+            print(f"  [腾讯] 第{retry+1}次失败: {e}，{wait}s后重试...")
             time.sleep(wait)
-    else:
-        print(f"  [股价] 重试3次均失败，返回空数据")
-        return pd.DataFrame()
-    if df.empty:
-        return df
-    df = df.rename(columns={
-        "日期": "date", "开盘": "open", "收盘": "close",
-        "最高": "high", "最低": "low",
-        "成交量": "volume", "成交额": "amount",
-    })
-    df["date"] = df["date"].astype(str)
-    return df
+
+    print(f"  [腾讯] 重试3次均失败，返回空数据")
+    return pd.DataFrame()
 
 
 def fetch_guba_posts(code: str, start_date: str) -> list[dict]:
