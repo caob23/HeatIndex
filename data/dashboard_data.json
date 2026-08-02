@@ -1,11 +1,11 @@
 {
   "symbol": "601838",
   "name": "成都银行",
-  "updated": "2026-08-02T05:45:09",
+  "updated": "2026-08-02T06:10:19",
   "records": [
     {
       "date": "2026-07-03",
-      "buzz_index": 263.8,
+      "buzz_index": 264.0,
       "close": 17.469,
       "open": 17.429,
       "high": 17.649,
@@ -16,7 +16,7 @@
     },
     {
       "date": "2026-07-04",
-      "buzz_index": 261.4,
+      "buzz_index": 261.5,
       "close": 17.469,
       "open": null,
       "high": null,
@@ -27,7 +27,7 @@
     },
     {
       "date": "2026-07-05",
-      "buzz_index": 262.7,
+      "buzz_index": 262.8,
       "close": 17.469,
       "open": null,
       "high": null,
@@ -38,7 +38,7 @@
     },
     {
       "date": "2026-07-06",
-      "buzz_index": 261.3,
+      "buzz_index": 261.4,
       "close": 17.769,
       "open": 17.359,
       "high": 18.089,
@@ -49,7 +49,7 @@
     },
     {
       "date": "2026-07-07",
-      "buzz_index": 260.4,
+      "buzz_index": 261.1,
       "close": 17.829,
       "open": 17.849,
       "high": 17.959,
@@ -60,7 +60,7 @@
     },
     {
       "date": "2026-07-08",
-      "buzz_index": 263.3,
+      "buzz_index": 266.3,
       "close": 18.109,
       "open": 17.769,
       "high": 18.169,
@@ -71,7 +71,7 @@
     },
     {
       "date": "2026-07-09",
-      "buzz_index": 261.2,
+      "buzz_index": 264.1,
       "close": 17.969,
       "open": 18.079,
       "high": 18.099,
@@ -82,7 +82,7 @@
     },
     {
       "date": "2026-07-10",
-      "buzz_index": 260.8,
+      "buzz_index": 263.5,
       "close": 18.079,
       "open": 17.949,
       "high": 18.289,
@@ -93,7 +93,7 @@
     },
     {
       "date": "2026-07-11",
-      "buzz_index": 258.3,
+      "buzz_index": 261.0,
       "close": 18.079,
       "open": null,
       "high": null,
@@ -104,7 +104,7 @@
     },
     {
       "date": "2026-07-12",
-      "buzz_index": 255.9,
+      "buzz_index": 258.7,
       "close": 18.079,
       "open": null,
       "high": null,
@@ -115,7 +115,7 @@
     },
     {
       "date": "2026-07-13",
-      "buzz_index": 259.9,
+      "buzz_index": 263.5,
       "close": 18.02,
       "open": 18.0,
       "high": 18.25,
@@ -126,7 +126,7 @@
     },
     {
       "date": "2026-07-14",
-      "buzz_index": 263.7,
+      "buzz_index": 266.5,
       "close": 17.79,
       "open": 17.99,
       "high": 18.04,
@@ -137,7 +137,7 @@
     },
     {
       "date": "2026-07-15",
-      "buzz_index": 262.3,
+      "buzz_index": 265.0,
       "close": 18.31,
       "open": 17.79,
       "high": 18.36,
@@ -148,7 +148,7 @@
     },
     {
       "date": "2026-07-16",
-      "buzz_index": 261.9,
+      "buzz_index": 264.4,
       "close": 18.29,
       "open": 18.22,
       "high": 18.46,
@@ -159,7 +159,7 @@
     },
     {
       "date": "2026-07-17",
-      "buzz_index": 261.3,
+      "buzz_index": 263.6,
       "close": 18.25,
       "open": 18.3,
       "high": 18.61,
@@ -170,7 +170,7 @@
     },
     {
       "date": "2026-07-18",
-      "buzz_index": 258.9,
+      "buzz_index": 261.3,
       "close": 18.25,
       "open": null,
       "high": null,
@@ -181,7 +181,7 @@
     },
     {
       "date": "2026-07-19",
-      "buzz_index": 256.4,
+      "buzz_index": 258.8,
       "close": 18.25,
       "open": null,
       "high": null,
@@ -192,7 +192,7 @@
     },
     {
       "date": "2026-07-20",
-      "buzz_index": 254.1,
+      "buzz_index": 256.4,
       "close": 18.48,
       "open": 18.21,
       "high": 18.63,
@@ -203,7 +203,7 @@
     },
     {
       "date": "2026-07-21",
-      "buzz_index": 257.0,
+      "buzz_index": 261.2,
       "close": 18.12,
       "open": 18.48,
       "high": 18.75,
@@ -214,7 +214,7 @@
     },
     {
       "date": "2026-07-22",
-      "buzz_index": 261.1,
+      "buzz_index": 264.4,
       "close": 18.52,
       "open": 18.14,
       "high": 18.58,
@@ -225,7 +225,7 @@
     },
     {
       "date": "2026-07-23",
-      "buzz_index": 259.1,
+      "buzz_index": 262.4,
       "close": 18.59,
       "open": 18.42,
       "high": 18.65,
@@ -236,7 +236,7 @@
     },
     {
       "date": "2026-07-24",
-      "buzz_index": 257.1,
+      "buzz_index": 260.2,
       "close": 18.45,
       "open": 18.53,
       "high": 18.69,
@@ -247,7 +247,7 @@
     },
     {
       "date": "2026-07-25",
-      "buzz_index": 254.6,
+      "buzz_index": 257.8,
       "close": 18.45,
       "open": null,
       "high": null,
@@ -258,7 +258,7 @@
     },
     {
       "date": "2026-07-26",
-      "buzz_index": 252.5,
+      "buzz_index": 255.6,
       "close": 18.45,
       "open": null,
       "high": null,
@@ -269,7 +269,7 @@
     },
     {
       "date": "2026-07-27",
-      "buzz_index": 251.2,
+      "buzz_index": 254.2,
       "close": 18.21,
       "open": 18.42,
       "high": 18.47,
@@ -280,7 +280,7 @@
     },
     {
       "date": "2026-07-28",
-      "buzz_index": 250.7,
+      "buzz_index": 253.8,
       "close": 18.4,
       "open": 18.27,
       "high": 18.48,
@@ -291,7 +291,7 @@
     },
     {
       "date": "2026-07-29",
-      "buzz_index": 248.6,
+      "buzz_index": 251.7,
       "close": 18.48,
       "open": 18.41,
       "high": 18.55,
@@ -302,7 +302,7 @@
     },
     {
       "date": "2026-07-30",
-      "buzz_index": 250.5,
+      "buzz_index": 256.3,
       "close": 18.71,
       "open": 18.47,
       "high": 18.77,
@@ -313,7 +313,7 @@
     },
     {
       "date": "2026-07-31",
-      "buzz_index": 248.8,
+      "buzz_index": 254.8,
       "close": 18.5,
       "open": 18.51,
       "high": 18.55,
@@ -324,7 +324,7 @@
     },
     {
       "date": "2026-08-01",
-      "buzz_index": 246.4,
+      "buzz_index": 252.3,
       "close": 18.5,
       "open": null,
       "high": null,
@@ -335,7 +335,7 @@
     },
     {
       "date": "2026-08-02",
-      "buzz_index": 243.9,
+      "buzz_index": 249.8,
       "close": 18.5,
       "open": null,
       "high": null,
@@ -345,5 +345,5 @@
       "is_trading": false
     }
   ],
-  "posts_count": 1314
+  "posts_count": 1327
 }
