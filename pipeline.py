@@ -29,6 +29,8 @@ WEIGHT_READ = 0.4
 WEIGHT_REPLY = 0.6
 HALF_LIFE_DAYS = 7
 
+HEAT_CONFIG_FILE = "heat_config.json"
+
 GUBA_MAX_PAGES = 30
 
 DATA_DIR = "data"
@@ -105,6 +107,27 @@ def merge_posts(existing: list[dict], new: list[dict]) -> list[dict]:
             added += 1
     print(f"  [帖子] 已有 {len(existing) - added} 条，新增 {added} 条，合计 {len(existing)} 条")
     return existing
+
+
+# ═══════════════════════════════════════════════════
+# 热度配置持久化（动态归一化）
+# ═══════════════════════════════════════════════════
+
+def load_heat_config() -> dict:
+    """加载热度配置，不存在时返回默认值。"""
+    path = os.path.join(DATA_DIR, HEAT_CONFIG_FILE)
+    if os.path.exists(path):
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    return {"max_raw_score": 1000}
+
+
+def save_heat_config(config: dict):
+    """持久化热度配置。"""
+    os.makedirs(DATA_DIR, exist_ok=True)
+    path = os.path.join(DATA_DIR, HEAT_CONFIG_FILE)
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(config, f, ensure_ascii=False, indent=2)
 
 
 # ═══════════════════════════════════════════════════
@@ -246,13 +269,11 @@ def fetch_guba_posts(code: str, start_date: str) -> list[dict]:
 
 
 # ═══════════════════════════════════════════════════
-# 热度计算（0-100 标度）
+# 热度计算（动态归一化，0-100+ 标度）
 # ═══════════════════════════════════════════════════
 
-def calc_buzz_index(posts: list[dict], target_date: str) -> float:
-    """计算热度指数，0-100 标度。
-    0=冰点  25=微弱  37=基础活跃  50=中等  75=高热度  100=爆款顶流
-    """
+def calc_raw_score(posts: list[dict], target_date: str) -> float:
+    """计算指定日期的原始得分（未归一化）。"""
     target_dt = datetime.strptime(target_date, "%Y-%m-%d")
     total_score = 0.0
 
@@ -265,12 +286,56 @@ def calc_buzz_index(posts: list[dict], target_date: str) -> float:
         heat = p["read_count"] * WEIGHT_READ + p["reply_count"] * WEIGHT_REPLY
         total_score += heat * decay
 
+    return total_score
+
+
+def calc_buzz_index(total_score: float, max_raw_score: float) -> float | None:
+    """将原始得分归一化为 0-100+ 热度指数。
+    total_score == 0 时返回 None，表示无数据。
+    """
     if total_score == 0:
-        return 0.0
+        return None
 
     log_score = math.log1p(total_score)
-    buzz = min(log_score / math.log1p(50000) * BUZZ_SCALE_MAX, BUZZ_SCALE_MAX)
+    denominator = math.log1p(max_raw_score * 1.5)
+    buzz = min(log_score / denominator * BUZZ_SCALE_MAX, BUZZ_SCALE_MAX)
     return round(buzz, 1)
+
+
+def calc_slopes(records: list[dict]):
+    """为每个交易日计算 5 日滚动线性回归斜率。
+    对每个交易日，取最近 5 个交易日（含当日）的收盘价做线性回归，
+    斜率追加到 record["slope"]；非交易日设为 None。
+    x = [0, 1, 2, 3, 4]，y = 收盘价。
+    """
+    # 收集所有交易日索引
+    trading_indices = [i for i, r in enumerate(records) if r["is_trading"]]
+
+    for idx in trading_indices:
+        # 找到当前交易日在此列表中的位置
+        pos = trading_indices.index(idx)
+        # 取最近 5 个交易日（含当前）
+        start_pos = max(0, pos - 4)
+        window = trading_indices[start_pos:pos + 1]
+
+        if len(window) < 2:
+            records[idx]["slope"] = None
+            continue
+
+        n = len(window)
+        closes = [records[i]["close"] for i in window]
+        x = list(range(n))  # [0, 1, 2, 3, 4] 或更短
+
+        sum_x = sum(x)
+        sum_y = sum(closes)
+        sum_xy = sum(x[i] * closes[i] for i in range(n))
+        sum_x2 = sum(x[i] ** 2 for i in range(n))
+
+        denom = n * sum_x2 - sum_x ** 2
+        if denom == 0:
+            records[idx]["slope"] = None
+        else:
+            records[idx]["slope"] = round((n * sum_xy - sum_x * sum_y) / denom, 4)
 
 
 # ═══════════════════════════════════════════════════
@@ -295,7 +360,7 @@ def run():
         all_dates.append(d.strftime("%Y-%m-%d"))
         d += timedelta(days=1)
 
-    print("[HeatIndex] 步骤 1/4: 获取价格数据...")
+    print("[HeatIndex] 步骤 1/5: 获取价格数据...")
     price_df = get_stock_daily(SYMBOL, start_date, end_date)
     price_map = {}
     if not price_df.empty:
@@ -303,7 +368,7 @@ def run():
             price_map[row["date"]] = row
     print(f"  → 获取 {len(price_map)} 条价格记录 ({len(all_dates)} 个日历日)")
 
-    print("[HeatIndex] 步骤 2/4: 加载已有帖子 + 爬取新股吧帖子...")
+    print("[HeatIndex] 步骤 2/5: 加载已有帖子 + 爬取新股吧帖子...")
     existing = load_posts()
     print(f"  → 已持久化 {len(existing)} 条帖子")
 
@@ -315,7 +380,7 @@ def run():
     merged = merge_posts(existing, new_posts)
     save_posts(merged)
 
-    print("[HeatIndex] 步骤 3/4: 使用全部帖子计算热度指数...")
+    print("[HeatIndex] 步骤 3/5: 计算热度指数（动态归一化）...")
     print(f"  → 帖子池总计 {len(merged)} 条")
     # 统计帖子日期分布
     post_dates = {}
@@ -325,10 +390,36 @@ def run():
     max_pd = max(post_dates.keys()) if post_dates else "N/A"
     print(f"  → 帖子覆盖日期: {min_pd} ~ {max_pd}")
 
+    # 加载热度配置
+    heat_config = load_heat_config()
+    stored_max = heat_config.get("max_raw_score", 1000)
+    print(f"  → 历史 max_raw_score: {stored_max}")
+
+    # 第一轮：计算所有日期的原始得分，追踪新的最大值
+    raw_scores = {}
+    new_max_raw = 0.0
+    for ds in all_dates:
+        raw = calc_raw_score(merged, ds)
+        raw_scores[ds] = raw
+        if raw > new_max_raw:
+            new_max_raw = raw
+    print(f"  → 本次 max_raw_score: {new_max_raw:.2f}")
+
+    # 更新配置文件（仅在突破历史最大值时）
+    if new_max_raw > stored_max:
+        heat_config["max_raw_score"] = new_max_raw
+        save_heat_config(heat_config)
+        print(f"  → 更新 heat_config.json: max_raw_score = {new_max_raw:.2f}")
+
+    effective_max = max(stored_max, new_max_raw)
+    print(f"  → 归一化分母: log1p({effective_max * 1.5:.2f})")
+
+    # 第二轮：使用动态分母归一化，生成 records
     records = []
     last_close = None
     for ds in all_dates:
-        buzz = calc_buzz_index(merged, ds)
+        total_score = raw_scores[ds]
+        buzz = calc_buzz_index(total_score, effective_max)
         row = price_map.get(ds)
         if row is not None:
             last_close = float(row["close"])
@@ -353,6 +444,9 @@ def run():
                 "is_trading": False,
             })
 
+    print("[HeatIndex] 步骤 4/5: 计算价格斜率...")
+    calc_slopes(records)
+
     dashboard = {
         "symbol": SYMBOL,
         "name": SYMBOL_NAME,
@@ -362,7 +456,7 @@ def run():
         "posts_count": len(merged),
     }
 
-    print("[HeatIndex] 步骤 4/4: 输出 dashboard_data.json...")
+    print("[HeatIndex] 步骤 5/5: 输出 dashboard_data.json...")
     out_path = os.path.join(DATA_DIR, OUTPUT_FILE)
     with open(out_path, "w", encoding="utf-8") as f:
         json.dump(dashboard, f, ensure_ascii=False, indent=2)

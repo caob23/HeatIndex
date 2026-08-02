@@ -14,6 +14,8 @@
   :root {
     --buzz-color: #7C4DFF;
     --price-color: #757575;
+    --volume-color: #FF7043;
+    --slope-color: #26A69A;
     --bg: #F5F5F5;
     --card-bg: #FFFFFF;
   }
@@ -108,6 +110,8 @@
   }
   .legend-dot.buzz { background: var(--buzz-color); }
   .legend-dot.price { background: var(--price-color); }
+  .legend-dot.volume { background: var(--volume-color); }
+  .legend-dot.slope { background: var(--slope-color); }
 
   /* ── 时间范围按钮 ── */
   .range-bar {
@@ -167,6 +171,8 @@
     color: #212121;
   }
   .stat-box .value.buzz { color: var(--buzz-color); }
+  .stat-box .value.volume { color: var(--volume-color); }
+  .stat-box .value.slope { color: var(--slope-color); }
   .stat-box .change {
     font-size: 12px;
     margin-top: 2px;
@@ -243,6 +249,11 @@
   .buzz-high  { background: #FBE9E7; color: #E64A19; }
   .buzz-peak  { background: #FFEBEE; color: #C62828; }
 
+  .buzz-na {
+    color: #BDBDBD;
+    font-size: 12px;
+  }
+
   /* ── 图例切换 ── */
   .empty-state {
     text-align: center;
@@ -303,6 +314,12 @@
       <div class="legend-item">
         <span class="legend-dot price"></span> 收盘价（灰底=非交易日）
       </div>
+      <div class="legend-item">
+        <span class="legend-dot volume"></span> 成交量(手)（灰底=非交易日）
+      </div>
+      <div class="legend-item">
+        <span class="legend-dot slope"></span> 价格斜率(5日)
+      </div>
     </div>
 
     <!-- 日期范围按钮 -->
@@ -353,6 +370,7 @@
   // 热度档位
   // ══════════════════════════════════════════
   function buzzLevel(v) {
+    if (v == null) return { label: '暂无数据', cls: 'buzz-na' };
     if (v >= 100) return { label: '爆款顶流', cls: 'buzz-peak' };
     if (v >= 75)  return { label: '高热度',   cls: 'buzz-high' };
     if (v >= 50)  return { label: '中等热度', cls: 'buzz-mid'  };
@@ -397,18 +415,19 @@
     const prevTrading = tradingList.length > 1 ? tradingList[tradingList.length - 2] : null;
     const latest = latestTrading;
     const prev = prevTrading;
-    const latestBuzz = latest.buzz_index ?? 0;
+    const latestBuzz = latest.buzz_index;
     const latestPrice = latest.close ?? 0;
     const prevPrice = prev?.close ?? latestPrice;
     const priceChange = latestPrice - prevPrice;
     const priceChangePct = prevPrice ? ((priceChange / prevPrice) * 100) : 0;
     const bl = buzzLevel(latestBuzz);
+    const latestSlope = latest.slope;
 
     document.getElementById('stats').innerHTML = `
       <div class="stat-box">
         <div class="label">热度指数</div>
-        <div class="value buzz">${latestBuzz}</div>
-        <div class="change"><span class="buzz-cell ${bl.cls}">${bl.label}</span></div>
+        <div class="value buzz">${latestBuzz != null ? latestBuzz : '—'}</div>
+        <div class="change">${latestBuzz != null ? '<span class="buzz-cell ' + bl.cls + '">' + bl.label + '</span>' : '<span class="buzz-na">暂无数据</span>'}</div>
       </div>
       <div class="stat-box">
         <div class="label">收盘价</div>
@@ -427,8 +446,12 @@
         <div class="value">${(latest.low ?? latestPrice).toFixed(3)}</div>
       </div>
       <div class="stat-box">
-        <div class="label">成交量</div>
-        <div class="value">${((latest.volume ?? 0) / 10000).toFixed(0)}<span style="font-size:13px;color:#9E9E9E">万手</span></div>
+        <div class="label">成交量（万手）</div>
+        <div class="value volume">${((latest.volume ?? 0) / 10000).toFixed(0)}</div>
+      </div>
+      <div class="stat-box">
+        <div class="label">5日斜率</div>
+        <div class="value slope">${latestSlope != null ? latestSlope.toFixed(4) : '—'}</div>
       </div>
       <div class="stat-box">
         <div class="label">帖子池</div>
@@ -438,13 +461,15 @@
     `;
 
     // ══════════════════════════════════════
-    // 图表
+    // 图表数据
     // ══════════════════════════════════════
     const dates = records.map(r => r.date);
     const buzz = records.map(r => r.buzz_index ?? null);
     const priceData = records.map(r => r.close ?? null);
+    const volumeData = records.map(r => r.is_trading ? ((r.volume ?? 0) / 100) : null);
+    const slopeData = records.map(r => r.slope ?? null);
 
-    // 构建非交易日 markArea（用于价格线灰色底标注）
+    // 构建非交易日 markArea（用于价格线和成交量线灰色底标注）
     const nonTradingAreas = [];
     let areaStart = null;
     records.forEach((r, i) => {
@@ -461,8 +486,8 @@
       nonTradingAreas.push([{ xAxis: records[areaStart].date }, { xAxis: records[records.length - 1].date }]);
     }
 
-    // 构建非交易日间隙虚线连接（周五→周一、假期跨段等）
-    const gapMarkLines = [];
+    // 构建价格线非交易日间隙虚线连接（周五→周一、假期跨段等）
+    const priceGapMarkLines = [];
     let gapStart = null;
     let gapStartClose = null;
     for (let i = 0; i < records.length; i++) {
@@ -478,7 +503,7 @@
         }
       } else {
         if (gapStart !== null) {
-          gapMarkLines.push([
+          priceGapMarkLines.push([
             { coord: [records[gapStart].date, gapStartClose] },
             { coord: [records[i].date, records[i].close] }
           ]);
@@ -487,10 +512,41 @@
       }
     }
     if (gapStart !== null) {
-      // 末尾连续非交易日 → 从最后交易日拉水平虚线
-      gapMarkLines.push([
+      priceGapMarkLines.push([
         { coord: [records[gapStart].date, gapStartClose] },
         { coord: [records[records.length - 1].date, gapStartClose] }
+      ]);
+    }
+
+    // 构建成交量线非交易日间隙虚线连接
+    const volumeGapMarkLines = [];
+    let volGapStart = null;
+    let volGapStartVal = null;
+    for (let i = 0; i < records.length; i++) {
+      if (!records[i].is_trading) {
+        if (volGapStart === null) {
+          for (let j = i - 1; j >= 0; j--) {
+            if (records[j].is_trading) {
+              volGapStart = j;
+              volGapStartVal = (records[j].volume ?? 0) / 100;
+              break;
+            }
+          }
+        }
+      } else {
+        if (volGapStart !== null) {
+          volumeGapMarkLines.push([
+            { coord: [records[volGapStart].date, volGapStartVal] },
+            { coord: [records[i].date, (records[i].volume ?? 0) / 100] }
+          ]);
+          volGapStart = null;
+        }
+      }
+    }
+    if (volGapStart !== null) {
+      volumeGapMarkLines.push([
+        { coord: [records[volGapStart].date, volGapStartVal] },
+        { coord: [records[records.length - 1].date, volGapStartVal] }
       ]);
     }
 
@@ -500,6 +556,8 @@
       const sliceDates = dates.slice(startIdx, endIdx);
       const sliceBuzz  = buzz.slice(startIdx, endIdx);
       const slicePrice = priceData.slice(startIdx, endIdx);
+      const sliceVolume = volumeData.slice(startIdx, endIdx);
+      const sliceSlope = slopeData.slice(startIdx, endIdx);
 
       // 过滤当前窗口内的非交易日区域
       const windowNonTradingAreas = nonTradingAreas.filter(area => {
@@ -530,13 +588,24 @@
                 s += '<span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:#616161;margin-right:6px;"></span>';
                 s += '收盘价：<b>' + val.toFixed(3) + '</b>';
                 if (!rec.is_trading) s += ' <span style="color:#9E9E9E;font-size:11px">(沿用上日)</span>';
+              } else if (p.seriesName === '成交量(手)') {
+                s += '<span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:#FF7043;margin-right:6px;"></span>';
+                s += '成交量：<b>' + val.toFixed(0) + ' 手</b>';
+              } else if (p.seriesName === '价格斜率(5日)') {
+                s += '<span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:#26A69A;margin-right:6px;"></span>';
+                s += '5日斜率：<b>' + val.toFixed(4) + '</b>';
               }
             });
             return s;
           }
         },
-        legend: { show: false },
-        grid: { left: 72, right: 80, top: 30, bottom: 72 },
+        legend: {
+          data: ['热度指数', '收盘价', '成交量(手)', '价格斜率(5日)'],
+          selected: { '价格斜率(5日)': false },
+          top: 0,
+          textStyle: { fontSize: 11, fontFamily: 'Microsoft YaHei' },
+        },
+        grid: { left: 80, right: 220, top: 40, bottom: 72 },
         xAxis: {
           type: 'category',
           data: sliceDates,
@@ -554,7 +623,7 @@
             type: 'value',
             name: '热度指数',
             nameTextStyle: { color: '#7C4DFF', fontSize: 12, fontFamily: 'Microsoft YaHei' },
-            nameGap: 14,
+            nameGap: 12,
             min: function (v) { return Math.max(0, v.min - Math.max(3, (v.max - v.min) * 0.15)); },
             max: function (v) { return Math.min(100, v.max + Math.max(3, (v.max - v.min) * 0.15)); },
             axisLine: { show: false },
@@ -566,7 +635,7 @@
             type: 'value',
             name: '收盘价',
             nameTextStyle: { color: '#9E9E9E', fontSize: 12, fontFamily: 'Microsoft YaHei' },
-            nameGap: 14,
+            nameGap: 12,
             min: function (v) { return v.min - (v.max - v.min) * 0.05; },
             max: function (v) { return v.max + (v.max - v.min) * 0.05; },
             axisLine: { show: false },
@@ -574,6 +643,38 @@
             splitLine: { show: false },
             axisLabel: {
               color: '#9E9E9E',
+              fontSize: 11,
+              margin: 8,
+              formatter: v => v.toFixed(2),
+            },
+          },
+          {
+            type: 'value',
+            name: '成交量(手)',
+            nameTextStyle: { color: '#FF7043', fontSize: 12, fontFamily: 'Microsoft YaHei' },
+            nameGap: 12,
+            min: function (v) { return v.min - (v.max - v.min) * 0.05; },
+            max: function (v) { return v.max + (v.max - v.min) * 0.05; },
+            axisLine: { show: false },
+            axisTick: { show: false },
+            splitLine: { show: false },
+            axisLabel: {
+              color: '#FF7043',
+              fontSize: 11,
+              margin: 8,
+              formatter: v => v >= 10000 ? (v / 10000).toFixed(0) + '万' : v.toFixed(0),
+            },
+          },
+          {
+            type: 'value',
+            name: '价格斜率',
+            nameTextStyle: { color: '#26A69A', fontSize: 12, fontFamily: 'Microsoft YaHei' },
+            nameGap: 12,
+            axisLine: { show: false },
+            axisTick: { show: false },
+            splitLine: { show: false },
+            axisLabel: {
+              color: '#26A69A',
               fontSize: 11,
               margin: 8,
               formatter: v => v.toFixed(2),
@@ -634,9 +735,42 @@
             markLine: {
               silent: true,
               symbol: 'none',
-              data: gapMarkLines,
+              data: priceGapMarkLines,
               lineStyle: { color: '#616161', width: 2, type: 'dashed' },
             },
+          },
+          {
+            name: '成交量(手)',
+            type: 'line',
+            yAxisIndex: 2,
+            data: sliceVolume,
+            connectNulls: false,
+            symbol: 'circle',
+            symbolSize: 3,
+            lineStyle: { color: '#FF7043', width: 2 },
+            itemStyle: { color: '#FF7043' },
+            markArea: {
+              silent: true,
+              data: windowNonTradingAreas,
+              itemStyle: { color: 'rgba(200, 200, 200, 0.18)' },
+            },
+            markLine: {
+              silent: true,
+              symbol: 'none',
+              data: volumeGapMarkLines,
+              lineStyle: { color: '#FF7043', width: 2, type: 'dashed' },
+            },
+          },
+          {
+            name: '价格斜率(5日)',
+            type: 'line',
+            yAxisIndex: 3,
+            data: sliceSlope,
+            connectNulls: false,
+            symbol: 'circle',
+            symbolSize: 3,
+            lineStyle: { color: '#26A69A', width: 2 },
+            itemStyle: { color: '#26A69A' },
           },
         ],
       };
@@ -676,24 +810,31 @@
       document.getElementById('tableInfo').textContent = '共 ' + rows.length + ' 条';
 
       let html = '<table class="data-table"><thead><tr>';
-      html += '<th>日期</th><th>热度指数</th><th>档位</th><th>收盘价</th><th>开盘价</th><th>最高</th><th>最低</th><th>成交量(万手)</th><th>交易日</th>';
+      html += '<th>日期</th><th>热度指数</th><th>档位</th><th>收盘价</th><th>开盘价</th><th>最高</th><th>最低</th><th>成交量(手)</th><th>5日斜率</th><th>交易日</th>';
       html += '</tr></thead><tbody>';
 
       rows.forEach(r => {
         const d = new Date(r.date);
         const dow = d.getDay();
         const isWeekend = dow === 0 || dow === 6;
-        const bl = buzzLevel(r.buzz_index ?? 0);
+        const bl = buzzLevel(r.buzz_index);
 
         html += '<tr class="' + (isWeekend ? 'row-weekend' : '') + '">';
         html += '<td>' + r.date + '</td>';
-        html += '<td><b>' + (r.buzz_index ?? 0) + '</b></td>';
-        html += '<td><span class="buzz-cell ' + bl.cls + '">' + bl.label + '</span></td>';
+        // buzz_index null handling
+        if (r.buzz_index != null) {
+          html += '<td><b>' + r.buzz_index + '</b></td>';
+          html += '<td><span class="buzz-cell ' + bl.cls + '">' + bl.label + '</span></td>';
+        } else {
+          html += '<td><span class="buzz-na">暂无数据</span></td>';
+          html += '<td><span class="buzz-na">—</span></td>';
+        }
         html += '<td>' + (r.close != null ? r.close.toFixed(3) : '—') + '</td>';
         html += '<td>' + (r.open != null ? r.open.toFixed(3) : '—') + '</td>';
         html += '<td>' + (r.high != null ? r.high.toFixed(3) : '—') + '</td>';
         html += '<td>' + (r.low != null ? r.low.toFixed(3) : '—') + '</td>';
-        html += '<td>' + (r.volume != null ? (r.volume / 10000).toFixed(0) : '—') + '</td>';
+        html += '<td>' + (r.volume != null ? ((r.volume / 100)).toFixed(0) : '—') + '</td>';
+        html += '<td>' + (r.slope != null ? r.slope.toFixed(4) : '—') + '</td>';
         html += '<td>' + (r.is_trading ? '<span style="color:#43A047">是</span>' : '<span style="color:#E0E0E0">否</span>') + '</td>';
         html += '</tr>';
       });
