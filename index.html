@@ -461,6 +461,39 @@
       nonTradingAreas.push([{ xAxis: records[areaStart].date }, { xAxis: records[records.length - 1].date }]);
     }
 
+    // 构建非交易日间隙虚线连接（周五→周一、假期跨段等）
+    const gapMarkLines = [];
+    let gapStart = null;
+    let gapStartClose = null;
+    for (let i = 0; i < records.length; i++) {
+      if (!records[i].is_trading) {
+        if (gapStart === null) {
+          for (let j = i - 1; j >= 0; j--) {
+            if (records[j].is_trading) {
+              gapStart = j;
+              gapStartClose = records[j].close;
+              break;
+            }
+          }
+        }
+      } else {
+        if (gapStart !== null) {
+          gapMarkLines.push([
+            { coord: [records[gapStart].date, gapStartClose] },
+            { coord: [records[i].date, records[i].close] }
+          ]);
+          gapStart = null;
+        }
+      }
+    }
+    if (gapStart !== null) {
+      // 末尾连续非交易日 → 从最后交易日拉水平虚线
+      gapMarkLines.push([
+        { coord: [records[gapStart].date, gapStartClose] },
+        { coord: [records[records.length - 1].date, gapStartClose] }
+      ]);
+    }
+
     const chart = echarts.init(document.getElementById('chart'));
 
     function buildOption(startIdx, endIdx) {
@@ -597,6 +630,12 @@
               silent: true,
               data: windowNonTradingAreas,
               itemStyle: { color: 'rgba(200, 200, 200, 0.18)' },
+            },
+            markLine: {
+              silent: true,
+              symbol: 'none',
+              data: gapMarkLines,
+              lineStyle: { color: '#616161', width: 2, type: 'dashed' },
             },
           },
         ],
