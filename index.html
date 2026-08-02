@@ -498,133 +498,64 @@
       nonTradingAreas.push([{ xAxis: records[areaStart].date }, { xAxis: records[records.length - 1].date }]);
     }
 
-    // 构建价格线非交易日间隙虚线连接（周五→周一、假期跨段等）
-    const priceGapMarkLines = [];
-    let gapStart = null;
-    let gapStartClose = null;
-    for (let i = 0; i < records.length; i++) {
-      if (!records[i].is_trading) {
-        if (gapStart === null) {
-          for (let j = i - 1; j >= 0; j--) {
-            if (records[j].is_trading) {
-              gapStart = j;
-              gapStartClose = records[j].close;
-              break;
+    // ══════════════════════════════════════
+    // 单 series + markLine gap 方案
+    // ══════════════════════════════════════
+    // priceData / volumeData / slopeData / logCloseData 已是全量连续值（pipeline 非交易日沿用）
+    // 构建仅交易日数组用于 series（非交易日=null → connectNulls:false 断开）
+    const priceTrading  = records.map(r => r.is_trading ? (r.close ?? null) : null);
+    const volumeTrading = records.map(r => r.is_trading ? ((r.volume ?? 0) / 100) : null);
+    const slopeTrading  = records.map(r => r.is_trading ? (r.slope ?? null) : null);
+    const logTrading    = records.map(r => r.is_trading ? (r.log_close ?? null) : null);
+
+    // 生成非交易日 gap 虚线 markLine：连接 gap 前后两个交易日的值
+    function gapMarkLines(dataTrading, dataFull) {
+      const lines = [];
+      let gs = null;
+      const len = dataTrading.length;
+      for (let i = 0; i < len; i++) {
+        if (dataTrading[i] === null) {
+          if (gs === null) gs = i;
+        } else {
+          if (gs !== null) {
+            const before = gs - 1, after = i;
+            if (before >= 0 && after < len) {
+              lines.push([
+                { xAxis: records[before].date, yAxis: dataFull[before] },
+                { xAxis: records[after].date,  yAxis: dataFull[after]  }
+              ]);
             }
+            gs = null;
           }
         }
-      } else {
-        if (gapStart !== null) {
-          priceGapMarkLines.push([
-            { coord: [records[gapStart].date, gapStartClose] },
-            { coord: [records[i].date, records[i].close] }
+      }
+      // 末尾连续非交易日：水平虚线
+      if (gs !== null) {
+        const before = gs - 1;
+        if (before >= 0) {
+          lines.push([
+            { xAxis: records[before].date, yAxis: dataFull[before] },
+            { xAxis: records[len - 1].date, yAxis: dataFull[before] }
           ]);
-          gapStart = null;
         }
       }
-    }
-    if (gapStart !== null) {
-      priceGapMarkLines.push([
-        { coord: [records[gapStart].date, gapStartClose] },
-        { coord: [records[records.length - 1].date, gapStartClose] }
-      ]);
+      return lines;
     }
 
-    // 构建成交量线非交易日间隙虚线连接
-    const volumeGapMarkLines = [];
-    let volGapStart = null;
-    let volGapStartVal = null;
-    for (let i = 0; i < records.length; i++) {
-      if (!records[i].is_trading) {
-        if (volGapStart === null) {
-          for (let j = i - 1; j >= 0; j--) {
-            if (records[j].is_trading) {
-              volGapStart = j;
-              volGapStartVal = (records[j].volume ?? 0) / 100;
-              break;
-            }
-          }
-        }
-      } else {
-        if (volGapStart !== null) {
-          volumeGapMarkLines.push([
-            { coord: [records[volGapStart].date, volGapStartVal] },
-            { coord: [records[i].date, (records[i].volume ?? 0) / 100] }
-          ]);
-          volGapStart = null;
-        }
-      }
-    }
-    if (volGapStart !== null) {
-      volumeGapMarkLines.push([
-        { coord: [records[volGapStart].date, volGapStartVal] },
-        { coord: [records[records.length - 1].date, volGapStartVal] }
-      ]);
-    }
-
-    // 构建斜率非交易日间隙虚线连接
-    const slopeGapMarkLines = [];
-    let slGapStart = null;
-    let slGapStartVal = null;
-    for (let i = 0; i < records.length; i++) {
-      if (!records[i].is_trading) {
-        if (slGapStart === null) {
-          for (let j = i - 1; j >= 0; j--) {
-            if (records[j].is_trading && records[j].slope != null) {
-              slGapStart = j;
-              slGapStartVal = records[j].slope;
-              break;
-            }
-          }
-        }
-      } else {
-        if (slGapStart !== null && records[i].slope != null) {
-          slopeGapMarkLines.push([
-            { coord: [records[slGapStart].date, slGapStartVal] },
-            { coord: [records[i].date, records[i].slope] }
-          ]);
-          slGapStart = null;
-        } else if (slGapStart !== null && records[i].slope == null) {
-          slGapStart = null;
-        }
-      }
-    }
-
-    // 构建对数价格非交易日间隙虚线连接
-    const logPriceGapMarkLines = [];
-    let logGapStart = null;
-    let logGapStartVal = null;
-    for (let i = 0; i < records.length; i++) {
-      if (!records[i].is_trading) {
-        if (logGapStart === null) {
-          for (let j = i - 1; j >= 0; j--) {
-            if (records[j].is_trading) {
-              logGapStart = j;
-              logGapStartVal = records[j].log_close;
-              break;
-            }
-          }
-        }
-      } else {
-        if (logGapStart !== null) {
-          logPriceGapMarkLines.push([
-            { coord: [records[logGapStart].date, logGapStartVal] },
-            { coord: [records[i].date, records[i].log_close] }
-          ]);
-          logGapStart = null;
-        }
-      }
-    }
+    const priceGapLines = gapMarkLines(priceTrading, priceData);
+    const volumeGapLines = gapMarkLines(volumeTrading, volumeData);
+    const slopeGapLines = gapMarkLines(slopeTrading, slopeData);
+    const logGapLines = gapMarkLines(logTrading, logCloseData);
 
     const chart = echarts.init(document.getElementById('chart'));
 
     function buildOption(startIdx, endIdx) {
       const sliceDates = dates.slice(startIdx, endIdx);
       const sliceBuzz  = buzz.slice(startIdx, endIdx);
-      const slicePrice = priceData.slice(startIdx, endIdx);
-      const sliceVolume = volumeData.slice(startIdx, endIdx);
-      const sliceSlope = slopeData.slice(startIdx, endIdx);
-      const sliceLogClose = logCloseData.slice(startIdx, endIdx);
+      const slicePriceTrading  = priceTrading.slice(startIdx, endIdx);
+      const sliceVolumeTrading = volumeTrading.slice(startIdx, endIdx);
+      const sliceSlopeTrading  = slopeTrading.slice(startIdx, endIdx);
+      const sliceLogTrading    = logTrading.slice(startIdx, endIdx);
 
       // 过滤当前窗口内的非交易日区域
       const windowNonTradingAreas = nonTradingAreas.filter(area => {
@@ -632,6 +563,15 @@
         const aEnd = area[1].xAxis;
         return aStart <= sliceDates[sliceDates.length - 1] && aEnd >= sliceDates[0];
       });
+
+      // 过滤当前窗口内的 gap 虚线
+      function filterGapLines(gapLines) {
+        const s = sliceDates[0], e = sliceDates[sliceDates.length - 1];
+        return gapLines.filter(g => {
+          const x0 = g[0].xAxis, x1 = g[1].xAxis;
+          return x0 <= e && x1 >= s;
+        });
+      }
 
       return {
         tooltip: {
@@ -654,7 +594,7 @@
               } else if (p.seriesName === '收盘价') {
                 s += '<span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:#1976D2;margin-right:6px;"></span>';
                 s += '收盘价：<b>' + val.toFixed(3) + '</b>';
-                if (!rec.is_trading) s += ' <span style="color:#9E9E9E;font-size:11px">(沿用上日)</span>';
+                if (!rec.is_trading) s += ' <span style="color:#9E9E9E;font-size:11px">(非交易日)</span>';
               } else if (p.seriesName === '成交量(手)') {
                 s += '<span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:#FF7043;margin-right:6px;"></span>';
                 s += '成交量：<b>' + val.toFixed(0) + ' 手</b>';
@@ -664,7 +604,6 @@
               } else if (p.seriesName === '收盘价(对数)') {
                 s += '<span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:#AB47BC;margin-right:6px;"></span>';
                 s += '对数价格：<b>' + val.toFixed(4) + '</b>';
-                if (!rec.is_trading) s += ' <span style="color:#9E9E9E;font-size:11px">(非交易日)</span>';
               }
             });
             return s;
@@ -792,6 +731,7 @@
             yAxisIndex: 0,
             data: sliceBuzz,
             smooth: true,
+            connectNulls: false,
             symbol: 'circle',
             symbolSize: 4,
             lineStyle: { color: '#FF6B35', width: 2.5 },
@@ -807,8 +747,11 @@
             name: '收盘价',
             type: 'line',
             yAxisIndex: 1,
-            data: slicePrice,
+            data: slicePriceTrading,
             smooth: true,
+            connectNulls: false,
+            animationDuration: 1200,
+            animationEasing: 'cubicOut',
             symbol: 'circle',
             symbolSize: 3,
             lineStyle: { color: '#1976D2', width: 2 },
@@ -819,77 +762,73 @@
               itemStyle: { color: 'rgba(200, 200, 200, 0.18)' },
             },
             markLine: {
-              silent: true,
-              symbol: 'none',
-              data: priceGapMarkLines,
-              lineStyle: { color: '#1976D2', width: 2, type: 'dashed' },
+              silent: true, symbol: 'none',
+              lineStyle: { color: '#1976D2', type: 'dashed', width: 1.5, opacity: 0.6 },
+              label: { show: false },
+              data: filterGapLines(priceGapLines),
             },
           },
           {
             name: '成交量(手)',
             type: 'line',
             yAxisIndex: 2,
-            data: sliceVolume,
+            data: sliceVolumeTrading,
             smooth: true,
             connectNulls: false,
+            animationDuration: 1200,
+            animationEasing: 'cubicOut',
             symbol: 'circle',
             symbolSize: 3,
             lineStyle: { color: '#FF7043', width: 2 },
             itemStyle: { color: '#FF7043' },
-            markArea: {
-              silent: true,
-              data: windowNonTradingAreas,
-              itemStyle: { color: 'rgba(200, 200, 200, 0.18)' },
-            },
             markLine: {
-              silent: true,
-              symbol: 'none',
-              data: volumeGapMarkLines,
-              lineStyle: { color: '#FF7043', width: 2, type: 'dashed' },
+              silent: true, symbol: 'none',
+              lineStyle: { color: '#FF7043', type: 'dashed', width: 1.5, opacity: 0.6 },
+              label: { show: false },
+              data: filterGapLines(volumeGapLines),
             },
           },
           {
             name: '价格斜率(5日)',
             type: 'line',
             yAxisIndex: 3,
-            data: sliceSlope,
+            data: sliceSlopeTrading,
             smooth: true,
             connectNulls: false,
+            animationDuration: 1200,
+            animationEasing: 'cubicOut',
             symbol: 'circle',
             symbolSize: 3,
             lineStyle: { color: '#26A69A', width: 2 },
             itemStyle: { color: '#26A69A' },
             markLine: {
-              silent: true,
-              symbol: 'none',
+              silent: true, symbol: 'none',
+              lineStyle: { color: '#26A69A', type: 'dashed', width: 1.5, opacity: 0.6 },
+              label: { show: false },
               data: [
-                ...slopeGapMarkLines,
-                { yAxis: 0, lineStyle: { color: '#999', type: 'dashed', width: 1 }, label: { show: true, formatter: '零线' } },
+                { yAxis: 0, lineStyle: { color: '#999', type: 'solid' }, label: { show: true, formatter: '零线' } },
+                ...filterGapLines(slopeGapLines)
               ],
-              lineStyle: { color: '#26A69A', width: 2, type: 'dashed' },
             },
           },
           {
             name: '收盘价(对数)',
             type: 'line',
             yAxisIndex: 4,
-            data: sliceLogClose,
+            data: sliceLogTrading,
             smooth: true,
             connectNulls: false,
+            animationDuration: 1200,
+            animationEasing: 'cubicOut',
             symbol: 'circle',
             symbolSize: 3,
             lineStyle: { color: '#AB47BC', width: 2 },
             itemStyle: { color: '#AB47BC' },
-            markArea: {
-              silent: true,
-              data: windowNonTradingAreas,
-              itemStyle: { color: 'rgba(200, 200, 200, 0.18)' },
-            },
             markLine: {
-              silent: true,
-              symbol: 'none',
-              data: logPriceGapMarkLines,
-              lineStyle: { color: '#AB47BC', width: 2, type: 'dashed' },
+              silent: true, symbol: 'none',
+              lineStyle: { color: '#AB47BC', type: 'dashed', width: 1.5, opacity: 0.6 },
+              label: { show: false },
+              data: filterGapLines(logGapLines),
             },
           },
         ],
