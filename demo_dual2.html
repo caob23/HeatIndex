@@ -1,0 +1,157 @@
+<!--
+    HeatIndex - NASDAQ ETF Market Heat Index Dashboard
+    Copyright (C) 2026  caob23
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU Affero General Public License as published
+    by the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU Affero General Public License for more details.
+
+    You should have received a copy of the GNU Affero General Public License
+    along with this program.  If not, see <https://www.gnu.org/licenses/>.
+-->
+
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <title>双Series叠层 Demo - 全五线</title>
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+  <style>
+    body { font-family: sans-serif; background: #1a1a2e; color: #eee; padding: 20px; }
+    #chart { width: 980px; height: 560px; }
+    h3 { margin: 0 0 2px; }
+    .sub { color: #888; font-size: 13px; margin: 0 0 10px; }
+    .tip { color: #FFB74D; font-size: 13px; }
+  </style>
+</head>
+<body>
+  <h3>双 Series 叠层 Demo — 价格 / 成交量 / 斜率 / 对数 / 热度</h3>
+  <p class="sub">每一条虚线都是独立底层 series：animation:false · smooth:true · 立刻到位永不动画</p>
+  <p class="tip">操作：点图例任意开关 → 拖 dataZoom 缩放 → 虚线始终贴着实线，不闪不飘</p>
+  <div id="chart"></div>
+
+  <script>
+    const chart = echarts.init(document.getElementById('chart'));
+
+    // ── 模拟 60 天数据 ──
+    const dates = [];
+    const closeFull = [],  closeTrading = [];
+    const volFull = [],    volTrading = [];
+    const slopeFull = [],  slopeTrading = [];
+    const logFull = [],    logTrading = [];
+    const buzz = [];
+
+    let lastC = 20, lastV = 80000, lastS = 0, lastL = Math.log(20);
+    for (let i = 0; i < 60; i++) {
+      const d = new Date(2026, 6, 1 + i);
+      dates.push(d.toISOString().slice(0, 10));
+      const ok = d.getDay() !== 0 && d.getDay() !== 6;
+
+      if (ok) {
+        lastC += (Math.random() - 0.45) * 1.5;
+        lastV = Math.max(30000, lastV + (Math.random() - 0.5) * 30000);
+        lastL = Math.log(lastC);
+        lastS = (Math.random() - 0.45) * 0.3;  // 斜率模拟
+      }
+      closeFull.push(+lastC.toFixed(2));
+      closeTrading.push(ok ? +lastC.toFixed(2) : null);
+      volFull.push(Math.round(lastV / 100));
+      volTrading.push(ok ? Math.round(lastV / 100) : null);
+      logFull.push(+lastL.toFixed(4));
+      logTrading.push(ok ? +lastL.toFixed(4) : null);
+      slopeFull.push(+lastS.toFixed(4));
+      slopeTrading.push(ok ? +lastS.toFixed(4) : null);
+      buzz.push(+(25 + Math.random() * 55).toFixed(1));
+    }
+
+    // 非交易日 markArea（深灰底）
+    const nonTradingAreas = [];
+    let areaStart = null;
+    for (let i = 0; i < 60; i++) {
+      if (closeTrading[i] === null) {
+        if (areaStart === null) areaStart = i;
+      } else {
+        if (areaStart !== null) {
+          nonTradingAreas.push([{ xAxis: areaStart }, { xAxis: i - 1 }]);
+          areaStart = null;
+        }
+      }
+    }
+    if (areaStart !== null) nonTradingAreas.push([{ xAxis: areaStart }, { xAxis: 59 }]);
+
+    // 构造底层虚线 style
+    const dash = (color, w) => ({
+      color, type: 'dashed', width: w, opacity: 0.45
+    });
+    const solid = (color, w) => ({
+      color, width: w
+    });
+
+    chart.setOption({
+      animation: false,
+      tooltip: { trigger: 'axis' },
+      legend: {
+        data: ['热度指数', '收盘价', '成交量(手)', '价格斜率(5日)', '收盘价(对数)'],
+        textStyle: { color: '#ccc' }, top: 6
+      },
+      grid: { left: 82, right: 280, top: 48, bottom: 80 },
+      dataZoom: [{ type: 'slider', start: 0, end: 100, bottom: 10, height: 22 }],
+      xAxis: { type: 'category', data: dates, axisLabel: { rotate: 45, fontSize: 9, color: '#aaa' } },
+      yAxis: [
+        { type: 'value', name: '收盘价',      nameTextStyle: { color: '#1976D2' }, nameGap: 10, splitLine: { show: false } },
+        { type: 'value', name: '成交量(手)',  nameTextStyle: { color: '#FF7043' }, nameGap: 10, splitLine: { show: false }, axisLabel: { formatter: v => (v / 10000).toFixed(1) + '万' } },
+        { type: 'value', name: '斜率',        nameTextStyle: { color: '#26A69A' }, nameGap: 10, splitLine: { show: false },
+          markLine: { silent: true, symbol: 'none', lineStyle: { color: '#999', type: 'dashed', width: 1 },
+            label: { show: true, formatter: '零线' }, data: [{ yAxis: 0 }] } },
+        { type: 'value', name: '对数价格',    nameTextStyle: { color: '#AB47BC' }, nameGap: 10, splitLine: { show: false } },
+        { type: 'value', name: '热度指数',    nameTextStyle: { color: '#FF6B35' }, nameGap: 10, splitLine: { show: false }, min: 0, max: 100 },
+      ],
+      series: [
+        // ── 价格：底层虚线 ──
+        { name: '__价格底层', type: 'line', yAxisIndex: 0, data: closeFull, smooth: true, symbol: 'none',
+          lineStyle: dash('#1976D2', 1.5), animation: false, legendHoverLink: false },
+        // ── 价格：上层实线 ──
+        { name: '收盘价', type: 'line', yAxisIndex: 0, data: closeTrading, smooth: true, connectNulls: false,
+          symbol: 'circle', symbolSize: 4, lineStyle: solid('#1976D2', 2.2),
+          animation: true, animationDuration: 1000, animationEasing: 'cubicOut',
+          markArea: { silent: true, data: nonTradingAreas, itemStyle: { color: 'rgba(80,80,80,0.18)' } } },
+
+        // ── 成交量：底层虚线 ──
+        { name: '__成交量底层', type: 'line', yAxisIndex: 1, data: volFull, smooth: true, symbol: 'none',
+          lineStyle: dash('#FF7043', 1.5), animation: false, legendHoverLink: false },
+        // ── 成交量：上层实线 ──
+        { name: '成交量(手)', type: 'line', yAxisIndex: 1, data: volTrading, smooth: true, connectNulls: false,
+          symbol: 'circle', symbolSize: 4, lineStyle: solid('#FF7043', 2.2),
+          animation: true, animationDuration: 1000, animationEasing: 'cubicOut' },
+
+        // ── 斜率：底层虚线 ──
+        { name: '__斜率底层', type: 'line', yAxisIndex: 2, data: slopeFull, smooth: true, symbol: 'none',
+          lineStyle: dash('#26A69A', 1.5), animation: false, legendHoverLink: false },
+        // ── 斜率：上层实线 ──
+        { name: '价格斜率(5日)', type: 'line', yAxisIndex: 2, data: slopeTrading, smooth: true, connectNulls: false,
+          symbol: 'circle', symbolSize: 4, lineStyle: solid('#26A69A', 2.2),
+          animation: true, animationDuration: 1000, animationEasing: 'cubicOut' },
+
+        // ── 对数：底层虚线 ──
+        { name: '__对数底层', type: 'line', yAxisIndex: 3, data: logFull, smooth: true, symbol: 'none',
+          lineStyle: dash('#AB47BC', 1.5), animation: false, legendHoverLink: false },
+        // ── 对数：上层实线 ──
+        { name: '收盘价(对数)', type: 'line', yAxisIndex: 3, data: logTrading, smooth: true, connectNulls: false,
+          symbol: 'circle', symbolSize: 4, lineStyle: solid('#AB47BC', 2.2),
+          animation: true, animationDuration: 1000, animationEasing: 'cubicOut' },
+
+        // ── 热度：单层 ──
+        { name: '热度指数', type: 'line', yAxisIndex: 4, data: buzz, smooth: true,
+          symbol: 'circle', symbolSize: 4, lineStyle: solid('#FF6B35', 2.2),
+          animation: true, animationDuration: 1000, animationEasing: 'cubicOut' },
+      ]
+    });
+  </script>
+</body>
+</html>

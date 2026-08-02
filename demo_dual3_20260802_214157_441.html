@@ -1,0 +1,165 @@
+<!--
+    HeatIndex - NASDAQ ETF Market Heat Index Dashboard
+    Copyright (C) 2026  caob23
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU Affero General Public License as published
+    by the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU Affero General Public License for more details.
+
+    You should have received a copy of the GNU Affero General Public License
+    along with this program.  If not, see <https://www.gnu.org/licenses/>.
+-->
+
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <title>双Series叠层 Demo v3 — 完全修复</title>
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+  <style>
+    body { font-family: sans-serif; background: #1a1a2e; color: #eee; padding: 20px; }
+    #chart { width: 1000px; height: 580px; }
+    h3 { margin: 0 0 6px; }
+    .fix { color: #4CAF50; font-size: 13px; margin: 0 0 10px; line-height: 1.6; }
+  </style>
+</head>
+<body>
+  <h3>双 Series 叠层 Demo v3 — 图例联动虚线(开关都生效) · Y轴不重叠 · 零线在斜率实线上</h3>
+  <p class="fix">
+    1) Y轴用 offset 拉开间距，不再重叠<br>
+    2) 零线作为价格斜率(5日)实线 series 的 markLine<br>
+    3) 关掉"收盘价"图例→虚线也消失；再打开→虚线恢复
+  </p>
+  <div id="chart"></div>
+
+  <script>
+    const chart = echarts.init(document.getElementById('chart'));
+
+    // 造数据
+    const N = 60;
+    const dates = [], closeFull = [], closeTrading = [], volFull = [], volTrading = [],
+          slopeFull = [], slopeTrading = [], logFull = [], logTrading = [], buzz = [];
+    let c = 20, v = 80000, s = 0, l = Math.log(20);
+    for (let i = 0; i < N; i++) {
+      const d = new Date(2026, 6, 1 + i);
+      dates.push(d.toISOString().slice(0, 10));
+      const ok = d.getDay() !== 0 && d.getDay() !== 6;
+      if (ok) { c += (Math.random() - 0.45) * 1.5; v = Math.max(30000, v + (Math.random() - 0.5) * 30000); l = Math.log(c); s = (Math.random() - 0.45) * 0.3; }
+      closeFull.push(+c.toFixed(2));   closeTrading.push(ok ? +c.toFixed(2) : null);
+      volFull.push(Math.round(v/100));  volTrading.push(ok ? Math.round(v/100) : null);
+      logFull.push(+l.toFixed(4));     logTrading.push(ok ? +l.toFixed(4) : null);
+      slopeFull.push(+s.toFixed(4));   slopeTrading.push(ok ? +s.toFixed(4) : null);
+      buzz.push(+(25 + Math.random() * 55).toFixed(1));
+    }
+
+    const nonTradingAreas = [];
+    let st = null;
+    for (let i = 0; i < N; i++) {
+      if (closeTrading[i] === null) { if (st === null) st = i; }
+      else { if (st !== null) { nonTradingAreas.push([{ xAxis: st }, { xAxis: i - 1 }]); st = null; } }
+    }
+    if (st !== null) nonTradingAreas.push([{ xAxis: st }, { xAxis: N - 1 }]);
+
+    // 斜率非交易日虚线 gap：用 markLine 连接 gap 两端交易日的斜率值
+    const slopeGapLines = [];
+    st = null;
+    for (let i = 0; i < N; i++) {
+      if (slopeTrading[i] === null) { if (st === null) st = i; }
+      else {
+        if (st !== null) {
+          const before = st - 1, after = i;
+          if (before >= 0 && after < N && slopeTrading[before] != null && slopeTrading[after] != null) {
+            slopeGapLines.push([{ xAxis: before, yAxis: slopeTrading[before] }, { xAxis: after, yAxis: slopeTrading[after] }]);
+          }
+          st = null;
+        }
+      }
+    }
+    if (st !== null) {
+      const before = st - 1;
+      if (before >= 0 && slopeTrading[before] != null) {
+        slopeGapLines.push([{ xAxis: before, yAxis: slopeTrading[before] }, { xAxis: N - 1, yAxis: slopeTrading[before] }]);
+      }
+    }
+
+    const dash = (c, w) => ({ color: c, type: 'dashed', width: w, opacity: 0.4 });
+    const sol  = (c, w) => ({ color: c, width: w });
+
+    // 图例名 → 底层虚线 series 名 映射
+    const dashMap = {
+      '收盘价':        '__价格底层',
+      '成交量(手)':    '__成交量底层',
+      '收盘价(对数)':  '__对数底层',
+    };
+
+    // 底层虚线原始数据引用（用于恢复）
+    const dashData = {
+      '__价格底层':   closeFull,
+      '__成交量底层': volFull,
+      '__对数底层':   logFull,
+    };
+
+    const option = {
+      animation: false,
+      tooltip: { trigger: 'axis' },
+      legend: { data: ['热度指数','收盘价','成交量(手)','价格斜率(5日)','收盘价(对数)'], textStyle: { color: '#ccc' }, top: 6 },
+      grid: { left: 88, right: 300, top: 48, bottom: 80 },
+      dataZoom: [{ type: 'slider', start: 0, end: 100, bottom: 10, height: 22 }],
+      xAxis: { type: 'category', data: dates, axisLabel: { rotate: 45, fontSize: 9, color: '#aaa' } },
+      yAxis: [
+        { name: '收盘价',     nameTextStyle: { color: '#1976D2' }, nameGap: 14, offset: 0,   axisLabel: { margin: 4 } },
+        { name: '成交量(手)', nameTextStyle: { color: '#FF7043' }, nameGap: 14, offset: 55,  axisLabel: { margin: 4, formatter: v => v>=10000 ? (v/10000).toFixed(1)+'万' : v } },
+        { name: '斜率',       nameTextStyle: { color: '#26A69A' }, nameGap: 14, offset: 110, axisLabel: { margin: 4 } },
+        { name: '对数价格',   nameTextStyle: { color: '#AB47BC' }, nameGap: 14, offset: 165, axisLabel: { margin: 4 } },
+        { name: '热度指数',   nameTextStyle: { color: '#FF6B35' }, nameGap: 14, offset: 220, axisLabel: { margin: 4 }, min: 0, max: 100 },
+      ],
+      series: [
+        { name: '__价格底层',    type:'line', yAxisIndex:0, data:closeFull,   smooth:true, symbol:'none', lineStyle:dash('#1976D2',1.4), animation:false, legendHoverLink:false },
+        { name: '收盘价',        type:'line', yAxisIndex:0, data:closeTrading,smooth:true, connectNulls:false, symbol:'circle',symbolSize:4, lineStyle:sol('#1976D2',2.2), animation:true, animationDuration:1000, animationEasing:'cubicOut',  markArea:{ silent:true, data:nonTradingAreas, itemStyle:{ color:'rgba(80,80,80,0.18)' } } },
+
+        { name: '__成交量底层',  type:'line', yAxisIndex:1, data:volFull,     smooth:true, symbol:'none', lineStyle:dash('#FF7043',1.4), animation:false, legendHoverLink:false },
+        { name: '成交量(手)',    type:'line', yAxisIndex:1, data:volTrading,  smooth:true, connectNulls:false, symbol:'circle',symbolSize:3, lineStyle:sol('#FF7043',2.2), animation:true, animationDuration:1000, animationEasing:'cubicOut' },
+
+        { name: '价格斜率(5日)', type:'line', yAxisIndex:2, data:slopeTrading,smooth:true, connectNulls:false, symbol:'circle',symbolSize:3, lineStyle:sol('#26A69A',2.2), animation:true, animationDuration:1000, animationEasing:'cubicOut',
+          markLine:{ silent:true, symbol:'none', lineStyle:{color:'#26A69A',type:'dashed',width:1.2,opacity:0.45}, label:{show:false}, data:[
+            { yAxis:0, lineStyle:{color:'#666'}, label:{show:true,formatter:'零线',fontSize:10} },
+            ...slopeGapLines
+          ] } },
+
+        { name: '__对数底层',    type:'line', yAxisIndex:3, data:logFull,     smooth:true, symbol:'none', lineStyle:dash('#AB47BC',1.4), animation:false, legendHoverLink:false },
+        { name: '收盘价(对数)',  type:'line', yAxisIndex:3, data:logTrading,  smooth:true, connectNulls:false, symbol:'circle',symbolSize:3, lineStyle:sol('#AB47BC',2.2), animation:true, animationDuration:1000, animationEasing:'cubicOut' },
+
+        { name: '热度指数',      type:'line', yAxisIndex:4, data:buzz,        smooth:true, symbol:'circle',symbolSize:4, lineStyle:sol('#FF6B35',2.2), animation:true, animationDuration:1000, animationEasing:'cubicOut' },
+      ],
+    };
+
+    chart.setOption(option);
+
+    // 图例联动：开关上层实线时，同步控制底层虚线的显隐
+    chart.on('legendselectchanged', function(params) {
+      const updates = [];
+      for (const [legendName, dashName] of Object.entries(dashMap)) {
+        const wanted = params.selected[legendName];
+        // 找到底层虚线 series 的当前状态
+        const curSeries = chart.getOption().series.find(s => s.name === dashName);
+        if (!curSeries) continue;
+        const isNull = curSeries.data && curSeries.data[0] === null;
+        if (wanted && isNull) {
+          // 需要恢复
+          updates.push({ name: dashName, data: dashData[dashName] });
+        } else if (!wanted && !isNull) {
+          // 需要隐藏
+          updates.push({ name: dashName, data: new Array(N).fill(null) });
+        }
+      }
+      if (updates.length > 0) chart.setOption({ series: updates });
+    });
+  </script>
+</body>
+</html>

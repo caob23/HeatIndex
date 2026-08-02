@@ -1,0 +1,200 @@
+<!--
+    HeatIndex - NASDAQ ETF Market Heat Index Dashboard
+    Copyright (C) 2026  caob23
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU Affero General Public License as published
+    by the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU Affero General Public License for more details.
+
+    You should have received a copy of the GNU Affero General Public License
+    along with this program.  If not, see <https://www.gnu.org/licenses/>.
+-->
+
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <title>HeatIndex Demo — 单Series + MarkLine Gap</title>
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+  <style>
+    body { font-family: sans-serif; background: #1a1a2e; color: #eee; padding: 20px; }
+    #chart { width: 1000px; height: 580px; }
+    h3 { margin: 0 0 6px; color: #fff; }
+    .note { color: #4CAF50; font-size: 13px; margin: 0 0 10px; line-height: 1.6; }
+  </style>
+</head>
+<body>
+  <h3>单 Series + MarkLine Gap · 模仿 fixed_chart_v8 算法</h3>
+  <p class="note">
+    每条线只有一个 series（connectNulls:false 断开非交易日），<br>
+    非交易日间隙用 markLine 虚线连接前后端点，无需底层幽灵 series。
+  </p>
+  <div id="chart"></div>
+
+  <script>
+    const chart = echarts.init(document.getElementById('chart'));
+    const N = 60;
+
+    // ── 数据生成 ──
+    const dates = [];
+    const closeTrading = [], closeFull = [];
+    const volTrading  = [], volFull   = [];
+    const logTrading  = [], logFull   = [];
+    const slopeTrading = [], slopeFull = [];
+    const buzz = [];
+
+    let c = 20, v = 80000;
+    for (let i = 0; i < N; i++) {
+      const d = new Date(2026, 6, 1 + i);
+      dates.push(d.toISOString().slice(0, 10));
+      const ok = d.getDay() !== 0 && d.getDay() !== 6;
+      if (ok) { c += (Math.random() - 0.45) * 1.5; v = Math.max(30000, v + (Math.random() - 0.5) * 30000); }
+
+      // 全量连续（非交易日沿用上日）
+      closeFull.push(+c.toFixed(2));
+      closeTrading.push(ok ? +c.toFixed(2) : null);
+
+      volFull.push(Math.round(v / 100));
+      volTrading.push(ok ? Math.round(v / 100) : null);
+
+      logFull.push(+Math.log(c).toFixed(4));
+      logTrading.push(ok ? +Math.log(c).toFixed(4) : null);
+    }
+
+    // 斜率基于 closeFull 连续计算，非交易日也沿用（保证 gap 前后值连续）
+    for (let i = 0; i < N; i++) {
+      const s = i >= 5 ? +((closeFull[i] - closeFull[i - 5]) / closeFull[i - 5] * 100).toFixed(4) : 0;
+      slopeFull.push(s);
+      slopeTrading.push(closeTrading[i] !== null ? s : null);
+    }
+
+    for (let i = 0; i < N; i++) {
+      buzz.push(+(25 + Math.random() * 55).toFixed(1));
+    }
+
+    // ── 非交易日 markArea 灰底 ──
+    const nonTradingAreas = [];
+    let st = null;
+    for (let i = 0; i < N; i++) {
+      if (closeTrading[i] === null) { if (st === null) st = i; }
+      else { if (st !== null) { nonTradingAreas.push([{ xAxis: st }, { xAxis: i - 1 }]); st = null; } }
+    }
+    if (st !== null) nonTradingAreas.push([{ xAxis: st }, { xAxis: N - 1 }]);
+
+    // ── 生成 gap markLine（核心算法，来自 fixed_chart_v8） ──
+    function gapMarkLines(tradingData, fullData) {
+      const lines = [];
+      let gs = null;
+      for (let i = 0; i < N; i++) {
+        if (tradingData[i] === null) {
+          if (gs === null) gs = i;
+        } else {
+          if (gs !== null) {
+            const before = gs - 1, after = i;
+            if (before >= 0 && after < N) {
+              lines.push([
+                { xAxis: before, yAxis: fullData[before] },
+                { xAxis: after,  yAxis: fullData[after]  }
+              ]);
+            }
+            gs = null;
+          }
+        }
+      }
+      // 末尾连续非交易日：水平虚线
+      if (gs !== null) {
+        const before = gs - 1;
+        if (before >= 0) {
+          lines.push([
+            { xAxis: before, yAxis: fullData[before] },
+            { xAxis: N - 1,  yAxis: fullData[before] }
+          ]);
+        }
+      }
+      return lines;
+    }
+
+    const closeGap = gapMarkLines(closeTrading, closeFull);
+    const volGap   = gapMarkLines(volTrading, volFull);
+    const logGap   = gapMarkLines(logTrading, logFull);
+    const slopeGap = gapMarkLines(slopeTrading, slopeFull);
+
+    const mk = (color) => ({
+      silent: true, symbol: 'none',
+      lineStyle: { color, type: 'dashed', width: 1.5, opacity: 0.6 },
+      label: { show: false },
+    });
+
+    // ── ECharts 配置 ──
+    chart.setOption({
+      animation: false,
+      tooltip: { trigger: 'axis' },
+      legend: {
+        data: ['热度指数', '收盘价', '成交量(手)', '价格斜率(5日)', '收盘价(对数)'],
+        textStyle: { color: '#ccc' }, top: 6
+      },
+      grid: { left: 88, right: 300, top: 48, bottom: 80 },
+      dataZoom: [{ type: 'slider', start: 0, end: 100, bottom: 10, height: 22 }],
+      xAxis: { type: 'category', data: dates, axisLabel: { rotate: 45, fontSize: 9, color: '#aaa' } },
+      yAxis: [
+        { name: '收盘价',     nameTextStyle: { color: '#1976D2' }, nameGap: 14, offset: 0,   axisLabel: { margin: 4 } },
+        { name: '成交量(手)', nameTextStyle: { color: '#FF7043' }, nameGap: 14, offset: 55,  axisLabel: { margin: 4, formatter: v => v >= 10000 ? (v/10000).toFixed(1)+'万' : v } },
+        { name: '斜率',       nameTextStyle: { color: '#26A69A' }, nameGap: 14, offset: 110, axisLabel: { margin: 4 } },
+        { name: '对数价格',   nameTextStyle: { color: '#AB47BC' }, nameGap: 14, offset: 165, axisLabel: { margin: 4 } },
+        { name: '热度指数',   nameTextStyle: { color: '#FF6B35' }, nameGap: 14, offset: 220, axisLabel: { margin: 4 }, min: 0, max: 100 },
+      ],
+      series: [
+        {
+          name: '收盘价', type: 'line', yAxisIndex: 0, data: closeTrading,
+          smooth: true, connectNulls: false,
+          symbol: 'circle', symbolSize: 4,
+          lineStyle: { color: '#1976D2', width: 2.5 },
+          markArea: { silent: true, data: nonTradingAreas, itemStyle: { color: 'rgba(80,80,80,0.18)' } },
+          markLine: { ...mk('#1976D2'), data: closeGap },
+        },
+        {
+          name: '成交量(手)', type: 'line', yAxisIndex: 1, data: volTrading,
+          smooth: true, connectNulls: false,
+          symbol: 'circle', symbolSize: 3,
+          lineStyle: { color: '#FF7043', width: 2.5 },
+          markLine: { ...mk('#FF7043'), data: volGap },
+        },
+        {
+          name: '价格斜率(5日)', type: 'line', yAxisIndex: 2, data: slopeTrading,
+          smooth: true, connectNulls: false,
+          symbol: 'circle', symbolSize: 3,
+          lineStyle: { color: '#26A69A', width: 2.5 },
+          markLine: {
+            silent: true, symbol: 'none',
+            lineStyle: { color: '#26A69A', type: 'dashed', width: 1.5, opacity: 0.6 },
+            label: { show: false },
+            data: [
+              { yAxis: 0, lineStyle: { color: '#666', type: 'solid' }, label: { show: true, formatter: '零线', fontSize: 10 } },
+              ...slopeGap
+            ],
+          },
+        },
+        {
+          name: '收盘价(对数)', type: 'line', yAxisIndex: 3, data: logTrading,
+          smooth: true, connectNulls: false,
+          symbol: 'circle', symbolSize: 3,
+          lineStyle: { color: '#AB47BC', width: 2.5 },
+          markLine: { ...mk('#AB47BC'), data: logGap },
+        },
+        {
+          name: '热度指数', type: 'line', yAxisIndex: 4, data: buzz,
+          smooth: true,
+          symbol: 'circle', symbolSize: 4,
+          lineStyle: { color: '#FF6B35', width: 2.2 },
+        },
+      ],
+    });
+  </script>
+</body>
+</html>

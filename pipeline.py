@@ -1,3 +1,19 @@
+#    HeatIndex - NASDAQ ETF Market Heat Index Dashboard
+#    Copyright (C) 2026  caob23
+#
+#    This program is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU Affero General Public License as published
+#    by the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    This program is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU Affero General Public License for more details.
+#
+#    You should have received a copy of the GNU Affero General Public License
+#    along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 """HeatIndex Pipeline
 从 data/stocks.json 读取标的配置，从 data/heat_config.json 读取热度参数。
 采集价格 + 股吧热度 → 输出 dashboard_data.json
