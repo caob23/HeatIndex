@@ -279,7 +279,7 @@ def calc_buzz_index(posts: list[dict], target_date: str) -> float:
 
 def run():
     end_dt = datetime.now()
-    start_dt = end_dt - timedelta(days=30)
+    start_dt = end_dt - timedelta(days=365)
     end_date = end_dt.strftime("%Y%m%d")
     start_date = start_dt.strftime("%Y%m%d")
 

@@ -301,7 +301,7 @@
         <span class="legend-dot buzz"></span> 热度指数 (0–100)
       </div>
       <div class="legend-item">
-        <span class="legend-dot price"></span> 收盘价（虚线=非交易日沿用）
+        <span class="legend-dot price"></span> 收盘价（灰底=非交易日）
       </div>
     </div>
 
@@ -442,26 +442,38 @@
     // ══════════════════════════════════════
     const dates = records.map(r => r.date);
     const buzz = records.map(r => r.buzz_index ?? null);
-    const dashedPrice = records.map(r => r.close ?? null);
-    const solidPrice = records.map(r => r.is_trading ? (r.close ?? null) : null);
+    const priceData = records.map(r => r.close ?? null);
+
+    // 构建非交易日 markArea（用于价格线灰色底标注）
+    const nonTradingAreas = [];
+    let areaStart = null;
+    records.forEach((r, i) => {
+      if (!r.is_trading) {
+        if (areaStart === null) areaStart = i;
+      } else {
+        if (areaStart !== null) {
+          nonTradingAreas.push([{ xAxis: records[areaStart].date }, { xAxis: records[i - 1].date }]);
+          areaStart = null;
+        }
+      }
+    });
+    if (areaStart !== null) {
+      nonTradingAreas.push([{ xAxis: records[areaStart].date }, { xAxis: records[records.length - 1].date }]);
+    }
 
     const chart = echarts.init(document.getElementById('chart'));
 
     function buildOption(startIdx, endIdx) {
       const sliceDates = dates.slice(startIdx, endIdx);
       const sliceBuzz  = buzz.slice(startIdx, endIdx);
-      const sliceDashed = dashedPrice.slice(startIdx, endIdx);
-      const sliceSolid  = solidPrice.slice(startIdx, endIdx);
+      const slicePrice = priceData.slice(startIdx, endIdx);
 
-      // 非交易日背景
-      const weekendMarks = [];
-      for (let i = startIdx; i < endIdx; i++) {
-        const d = new Date(records[i].date);
-        const dow = d.getDay();
-        if (dow === 0 || dow === 6) {
-          weekendMarks.push({ xAxis: records[i].date });
-        }
-      }
+      // 过滤当前窗口内的非交易日区域
+      const windowNonTradingAreas = nonTradingAreas.filter(area => {
+        const aStart = area[0].xAxis;
+        const aEnd = area[1].xAxis;
+        return aStart <= sliceDates[sliceDates.length - 1] && aEnd >= sliceDates[0];
+      });
 
       return {
         tooltip: {
@@ -481,8 +493,8 @@
                 s += '热度指数：<b style="color:#7C4DFF">' + val + '</b>';
                 s += ' <span class="buzz-cell ' + bl2.cls + '" style="display:inline-block">' + bl2.label + '</span>';
                 if (!rec.is_trading) s += ' <span style="color:#9E9E9E;font-size:11px">(非交易日)</span>';
-              } else {
-                s += '<span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:#9E9E9E;margin-right:6px;"></span>';
+              } else if (p.seriesName === '收盘价') {
+                s += '<span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:#616161;margin-right:6px;"></span>';
                 s += '收盘价：<b>' + val.toFixed(3) + '</b>';
                 if (!rec.is_trading) s += ' <span style="color:#9E9E9E;font-size:11px">(沿用上日)</span>';
               }
@@ -510,8 +522,8 @@
             name: '热度指数',
             nameTextStyle: { color: '#7C4DFF', fontSize: 12, fontFamily: 'Microsoft YaHei' },
             nameGap: 14,
-            min: function (v) { return Math.max(0, v.min - 5); },
-            max: function (v) { return Math.min(100, v.max + 5); },
+            min: function (v) { return Math.max(0, v.min - Math.max(3, (v.max - v.min) * 0.15)); },
+            max: function (v) { return Math.min(100, v.max + Math.max(3, (v.max - v.min) * 0.15)); },
             axisLine: { show: false },
             axisTick: { show: false },
             splitLine: { lineStyle: { color: '#F0F0F0', type: 'dashed' } },
@@ -522,8 +534,8 @@
             name: '收盘价',
             nameTextStyle: { color: '#9E9E9E', fontSize: 12, fontFamily: 'Microsoft YaHei' },
             nameGap: 14,
-            min: function (v) { return v.min - (v.max - v.min) * 0.1; },
-            max: function (v) { return v.max + (v.max - v.min) * 0.1; },
+            min: function (v) { return v.min - (v.max - v.min) * 0.05; },
+            max: function (v) { return v.max + (v.max - v.min) * 0.05; },
             axisLine: { show: false },
             axisTick: { show: false },
             splitLine: { show: false },
@@ -572,26 +584,20 @@
             },
           },
           {
-            name: '收盘价（虚线）',
-            type: 'line',
-            yAxisIndex: 1,
-            data: sliceDashed,
-            smooth: 0.4,
-            symbol: 'none',
-            lineStyle: { color: '#BDBDBD', width: 1.5, type: 'dashed' },
-            itemStyle: { color: '#BDBDBD' },
-          },
-          {
             name: '收盘价',
             type: 'line',
             yAxisIndex: 1,
-            data: sliceSolid,
-            connectNulls: false,
+            data: slicePrice,
             smooth: 0.4,
             symbol: 'circle',
             symbolSize: 3,
-            lineStyle: { color: '#616161', width: 2, type: 'solid' },
+            lineStyle: { color: '#616161', width: 2 },
             itemStyle: { color: '#616161' },
+            markArea: {
+              silent: true,
+              data: windowNonTradingAreas,
+              itemStyle: { color: 'rgba(200, 200, 200, 0.18)' },
+            },
           },
         ],
       };
