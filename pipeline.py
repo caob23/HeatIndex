@@ -438,7 +438,7 @@ def run():
             records.append({
                 "date": ds,
                 "buzz_index": buzz,
-                "close": last_close,
+                "close": None,
                 "open": None, "high": None, "low": None,
                 "volume": None, "amount": None,
                 "is_trading": False,
