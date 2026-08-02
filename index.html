@@ -14,7 +14,7 @@
   :root {
     --buzz-color: #FF6B35;
     --price-color: #1976D2;
-    --volume-color: #FF7043;
+    --volume-color: #43A047;
     --slope-color: #26A69A;
     --log-color: #AB47BC;
     --bg: #F5F5F5;
@@ -596,7 +596,7 @@
                 s += '收盘价：<b>' + val.toFixed(3) + '</b>';
                 if (!rec.is_trading) s += ' <span style="color:#9E9E9E;font-size:11px">(非交易日)</span>';
               } else if (p.seriesName === '成交量(手)') {
-                s += '<span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:#FF7043;margin-right:6px;"></span>';
+                s += '<span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:#43A047;margin-right:6px;"></span>';
                 s += '成交量：<b>' + val.toFixed(0) + ' 手</b>';
               } else if (p.seriesName === '价格斜率(5日)') {
                 s += '<span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:#26A69A;margin-right:6px;"></span>';
@@ -611,7 +611,7 @@
         },
         legend: {
           data: ['热度指数', '收盘价', '成交量(手)', '价格斜率(5日)', '收盘价(对数)'],
-          selected: { '价格斜率(5日)': false, '收盘价(对数)': false },
+          selected: { '成交量(手)': false, '价格斜率(5日)': false, '收盘价(对数)': false },
           top: 0,
           textStyle: { fontSize: 11, fontFamily: 'Microsoft YaHei' },
         },
@@ -647,7 +647,8 @@
             name: '收盘价',
             nameTextStyle: { color: '#1976D2', fontSize: 12, fontFamily: 'Microsoft YaHei' },
             nameGap: 10,
-            offset: 55,
+            position: 'right',
+            offset: 0,
             min: function (v) { return v.min - (v.max - v.min) * 0.05; },
             max: function (v) { return v.max + (v.max - v.min) * 0.05; },
             axisLine: { show: false },
@@ -663,16 +664,16 @@
           {
             type: 'value',
             name: '成交量(手)',
-            nameTextStyle: { color: '#FF7043', fontSize: 12, fontFamily: 'Microsoft YaHei' },
+            nameTextStyle: { color: '#43A047', fontSize: 12, fontFamily: 'Microsoft YaHei' },
             nameGap: 10,
-            offset: 110,
+            offset: 55,
             min: function (v) { return v.min - (v.max - v.min) * 0.05; },
             max: function (v) { return v.max + (v.max - v.min) * 0.05; },
             axisLine: { show: false },
             axisTick: { show: false },
             splitLine: { show: false },
             axisLabel: {
-              color: '#FF7043',
+              color: '#43A047',
               fontSize: 11,
               margin: 8,
               formatter: v => v >= 10000 ? (v / 10000).toFixed(0) + '万' : v.toFixed(0),
@@ -683,7 +684,8 @@
             name: '价格斜率',
             nameTextStyle: { color: '#26A69A', fontSize: 12, fontFamily: 'Microsoft YaHei' },
             nameGap: 10,
-            offset: 165,
+            position: 'right',
+            offset: 55,
             axisLine: { show: false },
             axisTick: { show: false },
             splitLine: { show: false },
@@ -699,7 +701,7 @@
             name: '对数价格',
             nameTextStyle: { color: '#AB47BC', fontSize: 12, fontFamily: 'Microsoft YaHei' },
             nameGap: 10,
-            offset: 220,
+            offset: 110,
             axisLine: { show: false },
             axisTick: { show: false },
             splitLine: { show: false },
@@ -784,11 +786,11 @@
             animationEasing: 'cubicOut',
             symbol: 'circle',
             symbolSize: 3,
-            lineStyle: { color: '#FF7043', width: 2 },
-            itemStyle: { color: '#FF7043' },
+            lineStyle: { color: '#43A047', width: 2 },
+            itemStyle: { color: '#43A047' },
             markLine: {
               silent: true, symbol: 'none',
-              lineStyle: { color: '#FF7043', type: 'dashed', width: 1.5, opacity: 0.6 },
+              lineStyle: { color: '#43A047', type: 'dashed', width: 1.5, opacity: 0.6 },
               label: { show: false },
               data: filterGapLines(volumeGapLines),
             },

@@ -1,7 +1,8 @@
 """HeatIndex Pipeline
-采集广发纳指ETF(159941)每日价格 + 东方财富纳斯达克吧(zsgjndx)热度 → 输出 dashboard_data.json
+从 data/stocks.json 读取标的配置，从 data/heat_config.json 读取热度参数。
+采集价格 + 股吧热度 → 输出 dashboard_data.json
 独立脚本，供 GitHub Actions 调用。
-帖子数据持久化：data/guba_posts_zsgjndx.json，增量累积不丢弃。
+帖子数据持久化：data/guba_posts_{guba_code}.json，增量累积不丢弃。
 """
 
 import json
@@ -16,26 +17,66 @@ import pandas as pd
 import requests
 
 # ═══════════════════════════════════════════════════
-# 配置
+# 路径常量
 # ═══════════════════════════════════════════════════
-SYMBOL = "159941"
-SYMBOL_NAME = "广发纳指ETF"
-GUBA_CODE = "zsgjndx"
-
-BUZZ_SCALE_MIN = 0
-BUZZ_SCALE_MAX = 100
-
-WEIGHT_READ = 0.4
-WEIGHT_REPLY = 0.6
-HALF_LIFE_DAYS = 7
-
-HEAT_CONFIG_FILE = "heat_config.json"
-
-GUBA_MAX_PAGES = 30
-
 DATA_DIR = "data"
+STOCKS_FILE = "stocks.json"
+HEAT_CONFIG_FILE = "heat_config.json"
 OUTPUT_FILE = "dashboard_data.json"
-POSTS_FILE = f"guba_posts_{GUBA_CODE}.json"
+
+
+# ═══════════════════════════════════════════════════
+# 配置加载（从 JSON 文件读取，需在模块级调用）
+# ═══════════════════════════════════════════════════
+
+def load_stocks_config() -> dict:
+    """加载 stocks.json，返回 {"symbols": [...], "active": "159941"}。"""
+    path = os.path.join(DATA_DIR, STOCKS_FILE)
+    if os.path.exists(path):
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    raise FileNotFoundError(f"未找到 {path}，请创建 stocks.json")
+
+
+def get_active_stock(config: dict) -> dict:
+    """从 stocks.json 中提取当前激活标的的配置字典。"""
+    active = config.get("active", "")
+    for s in config.get("symbols", []):
+        if s["symbol"] == active:
+            return s
+    raise ValueError(f"stocks.json 中未找到 active={active} 的标的")
+
+
+def load_heat_config() -> dict:
+    """加载热度配置，不存在时返回默认值。"""
+    path = os.path.join(DATA_DIR, HEAT_CONFIG_FILE)
+    defaults = {
+        "max_raw_score": 1000,
+        "buzz_scale_min": 0,
+        "buzz_scale_max": 100,
+        "weight_read": 0.4,
+        "weight_reply": 0.6,
+        "half_life_days": 7,
+        "denom_multiplier": 1.5,
+        "target_ceiling": 95,
+        "auto_scale": True,
+        "guba_max_pages": 30,
+    }
+    if os.path.exists(path):
+        with open(path, "r", encoding="utf-8") as f:
+            saved = json.load(f)
+            # 合并：以文件值为准，缺失键用默认值补
+            merged = {**defaults, **saved}
+            return merged
+    return defaults
+
+
+def save_heat_config(config: dict):
+    """持久化热度配置。"""
+    os.makedirs(DATA_DIR, exist_ok=True)
+    path = os.path.join(DATA_DIR, HEAT_CONFIG_FILE)
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(config, f, ensure_ascii=False, indent=2)
 
 # ═══════════════════════════════════════════════════
 # 反检测请求头
@@ -74,19 +115,19 @@ def _browser_headers(referer="https://guba.eastmoney.com"):
 # 帖子持久化
 # ═══════════════════════════════════════════════════
 
-def load_posts() -> list[dict]:
+def load_posts(guba_code: str) -> list[dict]:
     """加载已持久化的帖子列表。"""
-    path = os.path.join(DATA_DIR, POSTS_FILE)
+    path = os.path.join(DATA_DIR, f"guba_posts_{guba_code}.json")
     if os.path.exists(path):
         with open(path, "r", encoding="utf-8") as f:
             return json.load(f)
     return []
 
 
-def save_posts(posts: list[dict]):
+def save_posts(posts: list[dict], guba_code: str):
     """持久化帖子列表。"""
     os.makedirs(DATA_DIR, exist_ok=True)
-    path = os.path.join(DATA_DIR, POSTS_FILE)
+    path = os.path.join(DATA_DIR, f"guba_posts_{guba_code}.json")
     with open(path, "w", encoding="utf-8") as f:
         json.dump(posts, f, ensure_ascii=False, indent=2)
 
@@ -107,27 +148,6 @@ def merge_posts(existing: list[dict], new: list[dict]) -> list[dict]:
             added += 1
     print(f"  [帖子] 已有 {len(existing) - added} 条，新增 {added} 条，合计 {len(existing)} 条")
     return existing
-
-
-# ═══════════════════════════════════════════════════
-# 热度配置持久化（动态归一化）
-# ═══════════════════════════════════════════════════
-
-def load_heat_config() -> dict:
-    """加载热度配置，不存在时返回默认值。"""
-    path = os.path.join(DATA_DIR, HEAT_CONFIG_FILE)
-    if os.path.exists(path):
-        with open(path, "r", encoding="utf-8") as f:
-            return json.load(f)
-    return {"max_raw_score": 1000}
-
-
-def save_heat_config(config: dict):
-    """持久化热度配置。"""
-    os.makedirs(DATA_DIR, exist_ok=True)
-    path = os.path.join(DATA_DIR, HEAT_CONFIG_FILE)
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(config, f, ensure_ascii=False, indent=2)
 
 
 # ═══════════════════════════════════════════════════
@@ -198,14 +218,14 @@ def get_stock_daily(symbol: str, start_date: str, end_date: str) -> pd.DataFrame
 # 股吧爬虫
 # ═══════════════════════════════════════════════════
 
-def fetch_guba_posts(code: str, start_date: str) -> list[dict]:
+def fetch_guba_posts(code: str, start_date: str, max_pages: int = 30) -> list[dict]:
     """爬取股吧帖子，翻页直到日期早于 start_date 或达到页数上限。
     start_date 格式: YYYYMMDD
     """
     posts = []
     start_dt = datetime.strptime(start_date, "%Y%m%d")
 
-    for page in range(1, GUBA_MAX_PAGES + 1):
+    for page in range(1, max_pages + 1):
         if page == 1:
             url = f"https://guba.eastmoney.com/list,{code}.html"
         else:
@@ -272,7 +292,8 @@ def fetch_guba_posts(code: str, start_date: str) -> list[dict]:
 # 热度计算（动态归一化，0-100+ 标度）
 # ═══════════════════════════════════════════════════
 
-def calc_raw_score(posts: list[dict], target_date: str) -> float:
+def calc_raw_score(posts: list[dict], target_date: str,
+                   half_life: float = 7, w_read: float = 0.4, w_reply: float = 0.6) -> float:
     """计算指定日期的原始得分（未归一化）。"""
     target_dt = datetime.strptime(target_date, "%Y-%m-%d")
     total_score = 0.0
@@ -282,23 +303,25 @@ def calc_raw_score(posts: list[dict], target_date: str) -> float:
         days_ago = (target_dt - post_dt).days
         if days_ago < 0:
             continue
-        decay = 2 ** (-days_ago / HALF_LIFE_DAYS)
-        heat = p["read_count"] * WEIGHT_READ + p["reply_count"] * WEIGHT_REPLY
+        decay = 2 ** (-days_ago / half_life)
+        heat = p["read_count"] * w_read + p["reply_count"] * w_reply
         total_score += heat * decay
 
     return total_score
 
 
-def calc_buzz_index(total_score: float, max_raw_score: float) -> float | None:
-    """将原始得分归一化为 0-100+ 热度指数。
+def calc_buzz_index(total_score: float, max_raw_score: float,
+                    scale_max: float = 100, denom_mul: float = 1.5) -> float | None:
+    """将原始得分归一化为热度指数。
+    公式: log1p(total) / log1p(max_raw × denom_mul) × scale_max
     total_score == 0 时返回 None，表示无数据。
     """
     if total_score == 0:
         return None
 
     log_score = math.log1p(total_score)
-    denominator = math.log1p(max_raw_score * 1.5)
-    buzz = min(log_score / denominator * BUZZ_SCALE_MAX, BUZZ_SCALE_MAX)
+    denominator = math.log1p(max_raw_score * denom_mul)
+    buzz = min(log_score / denominator * scale_max, scale_max)
     return round(buzz, 1)
 
 
@@ -343,14 +366,35 @@ def calc_slopes(records: list[dict]):
 # ═══════════════════════════════════════════════════
 
 def run():
+    # ── 加载标的配置 ──
+    stocks_cfg = load_stocks_config()
+    stock = get_active_stock(stocks_cfg)
+    symbol = stock["symbol"]
+    symbol_name = stock["name"]
+    guba_code = stock["guba_code"]
+
+    # ── 加载热度配置 ──
+    hc = load_heat_config()
+    scale_min = hc["buzz_scale_min"]
+    scale_max = hc["buzz_scale_max"]
+    w_read = hc["weight_read"]
+    w_reply = hc["weight_reply"]
+    half_life = hc["half_life_days"]
+    denom_mul = hc["denom_multiplier"]
+    target_ceil = hc["target_ceiling"]
+    auto_scale = hc["auto_scale"]
+    guba_pages = hc.get("guba_max_pages", 30)
+
     end_dt = datetime.now()
     start_dt = end_dt - timedelta(days=365)
     end_date = end_dt.strftime("%Y%m%d")
     start_date = start_dt.strftime("%Y%m%d")
 
-    print(f"[HeatIndex] 采集 {SYMBOL} {SYMBOL_NAME}  ×  股吧 {GUBA_CODE}")
+    print(f"[HeatIndex] 采集 {symbol} {symbol_name}  ×  股吧 {guba_code}")
     print(f"  日期范围: {start_date} → {end_date}")
-    print(f"  热度标度: {BUZZ_SCALE_MIN}–{BUZZ_SCALE_MAX}")
+    print(f"  热度标度: {scale_min}–{scale_max}")
+    print(f"  参数: w_read={w_read} w_reply={w_reply} half_life={half_life}d "
+          f"denom_mul={denom_mul} target_ceil={target_ceil} auto_scale={auto_scale}")
     print(f"  阈值: 冰点0 / 微弱25 / 基础活跃37 / 中等50 / 高热度75 / 爆款顶流100")
 
     # 生成全部日历日（含非交易日）
@@ -361,7 +405,7 @@ def run():
         d += timedelta(days=1)
 
     print("[HeatIndex] 步骤 1/5: 获取价格数据...")
-    price_df = get_stock_daily(SYMBOL, start_date, end_date)
+    price_df = get_stock_daily(symbol, start_date, end_date)
     price_map = {}
     if not price_df.empty:
         for _, row in price_df.iterrows():
@@ -369,20 +413,19 @@ def run():
     print(f"  → 获取 {len(price_map)} 条价格记录 ({len(all_dates)} 个日历日)")
 
     print("[HeatIndex] 步骤 2/5: 加载已有帖子 + 爬取新股吧帖子...")
-    existing = load_posts()
+    existing = load_posts(guba_code)
     print(f"  → 已持久化 {len(existing)} 条帖子")
 
     # 爬取最近 180 天的帖子
     guba_start = (end_dt - timedelta(days=180)).strftime("%Y%m%d")
-    print(f"  → 爬取范围: {guba_start} 以来（最多 {GUBA_MAX_PAGES} 页）")
-    new_posts = fetch_guba_posts(GUBA_CODE, guba_start)
+    print(f"  → 爬取范围: {guba_start} 以来（最多 {guba_pages} 页）")
+    new_posts = fetch_guba_posts(guba_code, guba_start, max_pages=guba_pages)
 
     merged = merge_posts(existing, new_posts)
-    save_posts(merged)
+    save_posts(merged, guba_code)
 
-    print("[HeatIndex] 步骤 3/5: 计算热度指数（动态归一化）...")
+    print("[HeatIndex] 步骤 3/5: 计算热度指数（动态归一化 + 自动缩限）...")
     print(f"  → 帖子池总计 {len(merged)} 条")
-    # 统计帖子日期分布
     post_dates = {}
     for p in merged:
         post_dates[p["post_date"]] = post_dates.get(p["post_date"], 0) + 1
@@ -390,36 +433,65 @@ def run():
     max_pd = max(post_dates.keys()) if post_dates else "N/A"
     print(f"  → 帖子覆盖日期: {min_pd} ~ {max_pd}")
 
-    # 加载热度配置
-    heat_config = load_heat_config()
-    stored_max = heat_config.get("max_raw_score", 1000)
+    stored_max = hc.get("max_raw_score", 1000)
     print(f"  → 历史 max_raw_score: {stored_max}")
 
-    # 第一轮：计算所有日期的原始得分，追踪新的最大值
+    # 第一轮：计算所有日期的原始得分
     raw_scores = {}
     new_max_raw = 0.0
     for ds in all_dates:
-        raw = calc_raw_score(merged, ds)
+        raw = calc_raw_score(merged, ds, half_life=half_life, w_read=w_read, w_reply=w_reply)
         raw_scores[ds] = raw
         if raw > new_max_raw:
             new_max_raw = raw
     print(f"  → 本次 max_raw_score: {new_max_raw:.2f}")
 
-    # 更新配置文件（仅在突破历史最大值时）
     if new_max_raw > stored_max:
-        heat_config["max_raw_score"] = new_max_raw
-        save_heat_config(heat_config)
-        print(f"  → 更新 heat_config.json: max_raw_score = {new_max_raw:.2f}")
+        hc["max_raw_score"] = new_max_raw
+        print(f"  → 突破历史最高 raw 值: {new_max_raw:.2f}")
 
     effective_max = max(stored_max, new_max_raw)
-    print(f"  → 归一化分母: log1p({effective_max * 1.5:.2f})")
 
-    # 第二轮：使用动态分母归一化，生成 records
+    # ── 第二轮：先归一化，再检查是否触顶 ──
+    buzz_list = []
+    for ds in all_dates:
+        buzz = calc_buzz_index(raw_scores[ds], effective_max,
+                               scale_max=scale_max, denom_mul=denom_mul)
+        buzz_list.append((ds, buzz))
+
+    # ── 自动缩限：最近 30 天超过 10 天顶格 → 放大 denom_multiplier ──
+    recent_buzz = [b for _, b in buzz_list if b is not None][-30:]
+    capped_days = sum(1 for b in recent_buzz if b >= scale_max)
+    max_recent = max(recent_buzz) if recent_buzz else 0
+
+    config_changed = False
+    if auto_scale and capped_days >= 10:
+        hc["denom_multiplier"] = round(denom_mul * 1.2, 2)
+        config_changed = True
+        print(f"  ⚡ 近 30 天 {capped_days} 天触顶(≥{scale_max})，denom_multiplier: {denom_mul} → {hc['denom_multiplier']}")
+    elif auto_scale and max_recent < target_ceil and denom_mul > 1.0:
+        hc["denom_multiplier"] = round(max(denom_mul * 0.95, 1.0), 2)
+        if hc["denom_multiplier"] != denom_mul:
+            config_changed = True
+            print(f"  ⚡ 近 30 天最高 {max_recent:.1f} < 目标上限 {target_ceil}，"
+                  f"denom_multiplier: {denom_mul} → {hc['denom_multiplier']}")
+
+    # 如果自动缩限改变了 denom_mul，用新值重新计算一次
+    if config_changed:
+        denom_mul = hc["denom_multiplier"]
+        buzz_list = []
+        for ds in all_dates:
+            buzz = calc_buzz_index(raw_scores[ds], effective_max,
+                                   scale_max=scale_max, denom_mul=denom_mul)
+            buzz_list.append((ds, buzz))
+
+    save_heat_config(hc)
+    print(f"  → 归一化分母: log1p({effective_max * denom_mul:.2f})")
+
+    # 生成 records
     records = []
     last_close = None
-    for ds in all_dates:
-        total_score = raw_scores[ds]
-        buzz = calc_buzz_index(total_score, effective_max)
+    for ds, buzz in buzz_list:
         row = price_map.get(ds)
         if row is not None:
             last_close = float(row["close"])
@@ -449,10 +521,23 @@ def run():
     print("[HeatIndex] 步骤 4/5: 计算价格斜率...")
     calc_slopes(records)
 
+    last_slope = None
+    for record in records:
+        if record["is_trading"]:
+            last_slope = record.get("slope")
+            record["slope_full"] = record.get("slope")
+        else:
+            record["slope_full"] = last_slope
+
     dashboard = {
-        "symbol": SYMBOL,
-        "name": SYMBOL_NAME,
-        "guba_code": GUBA_CODE,
+        "symbol": symbol,
+        "name": symbol_name,
+        "guba_code": guba_code,
+        "heat_config": {
+            "denom_multiplier": denom_mul,
+            "scale_max": scale_max,
+            "target_ceiling": target_ceil,
+        },
         "updated": datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
         "records": records,
         "posts_count": len(merged),

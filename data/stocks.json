@@ -1,0 +1,13 @@
+{
+  "symbols": [
+    {
+      "symbol": "159941",
+      "name": "广发纳指ETF",
+      "market": "sz",
+      "type": "ETF",
+      "region": "US",
+      "guba_code": "zsgjndx"
+    }
+  ],
+  "active": "159941"
+}
