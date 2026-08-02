@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>HeatIndex · 成都银行热度指数</title>
+<title>HeatIndex · 广发纳指热度指数</title>
 
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/mdui@2.0.3/dist/css/mdui.min.css">
 <script src="https://cdn.jsdelivr.net/npm/mdui@2.0.3/dist/js/mdui.min.js"></script>
@@ -13,83 +13,93 @@
 <style>
   :root {
     --buzz-color: #7C4DFF;
-    --price-color: #9E9E9E;
+    --price-color: #757575;
+    --bg: #F5F5F5;
+    --card-bg: #FFFFFF;
   }
   * { box-sizing: border-box; }
   body {
     margin: 0;
-    background: #F5F5F5;
-    font-family: 'Roboto', 'Noto Sans SC', sans-serif;
+    background: var(--bg);
+    font-family: 'Microsoft YaHei', 'PingFang SC', 'Noto Sans SC', sans-serif;
   }
+
+  /* ── 顶栏 ── */
   .top-bar {
-    background: linear-gradient(135deg, #1A237E 0%, #283593 100%);
+    background: linear-gradient(135deg, #0D47A1 0%, #1565C0 50%, #1976D2 100%);
     color: #fff;
-    padding: 28px 24px 20px;
+    padding: 24px 28px 18px;
   }
   .top-bar h1 {
     margin: 0;
-    font-size: 26px;
+    font-size: 24px;
     font-weight: 500;
     display: flex;
     align-items: center;
     gap: 10px;
-  }
-  .top-bar h1 .icon {
-    font-size: 28px;
+    font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif;
   }
   .top-bar .desc {
-    margin-top: 6px;
+    margin-top: 4px;
     font-size: 13px;
     opacity: 0.65;
   }
   .top-bar .stock-badge {
     display: inline-block;
-    margin-top: 12px;
-    padding: 4px 12px;
-    background: rgba(255,255,255,0.12);
+    margin-top: 10px;
+    padding: 4px 14px;
+    background: rgba(255,255,255,0.13);
     border-radius: 20px;
     font-size: 13px;
-    letter-spacing: 0.5px;
+    letter-spacing: 0.3px;
   }
+
+  /* ── 主区 ── */
   .main {
-    max-width: 960px;
+    max-width: 1060px;
     margin: 0 auto;
-    padding: 24px 16px 48px;
+    padding: 20px 16px 40px;
   }
+
+  /* ── 卡片 ── */
   .card {
-    background: #fff;
-    border-radius: 20px;
-    padding: 24px;
-    margin-bottom: 20px;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+    background: var(--card-bg);
+    border-radius: 18px;
+    padding: 22px 24px;
+    margin-bottom: 18px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
   }
   .card-head {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: 16px;
+    margin-bottom: 14px;
   }
   .card-head h2 {
     margin: 0;
-    font-size: 18px;
+    font-size: 17px;
     font-weight: 500;
     color: #212121;
+    font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif;
   }
   .card-head .update-time {
     font-size: 12px;
     color: #9E9E9E;
   }
+
+  /* ── 图例 ── */
   .legend-row {
     display: flex;
-    gap: 20px;
-    margin-bottom: 12px;
+    gap: 18px;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
   }
   .legend-item {
     display: flex;
     align-items: center;
     gap: 6px;
-    font-size: 13px;
-    color: #616161;
+    font-size: 12px;
+    color: #757575;
   }
   .legend-dot {
     width: 10px;
@@ -98,48 +108,146 @@
   }
   .legend-dot.buzz { background: var(--buzz-color); }
   .legend-dot.price { background: var(--price-color); }
-  .legend-dot.weekend { background: #E0E0E0; }
+
+  /* ── 时间范围按钮 ── */
+  .range-bar {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+  }
+  .range-btn {
+    padding: 4px 14px;
+    border: 1px solid #E0E0E0;
+    border-radius: 16px;
+    background: #fff;
+    color: #616161;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif;
+  }
+  .range-btn:hover {
+    border-color: #7C4DFF;
+    color: #7C4DFF;
+  }
+  .range-btn.active {
+    background: #7C4DFF;
+    color: #fff;
+    border-color: #7C4DFF;
+  }
+
+  /* ── 图表 ── */
   #chart {
     width: 100%;
-    height: 480px;
+    height: 520px;
   }
-  .stats {
+
+  /* ── 概览 ── */
+  .stats-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-    gap: 16px;
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap: 12px;
+    margin-bottom: 18px;
   }
   .stat-box {
-    background: #F5F5F5;
+    background: #FAFAFA;
     border-radius: 12px;
-    padding: 16px;
+    padding: 14px 16px;
     text-align: center;
   }
   .stat-box .label {
-    font-size: 12px;
+    font-size: 11px;
     color: #9E9E9E;
-    margin-bottom: 6px;
+    margin-bottom: 4px;
   }
   .stat-box .value {
-    font-size: 24px;
+    font-size: 22px;
     font-weight: 500;
     color: #212121;
   }
   .stat-box .value.buzz { color: var(--buzz-color); }
   .stat-box .change {
-    font-size: 13px;
-    margin-top: 4px;
+    font-size: 12px;
+    margin-top: 2px;
   }
-  .change.up { color: #E53935; }
-  .change.down { color: #43A047; }
+  .change-up { color: #E53935; }
+  .change-down { color: #43A047; }
+
+  /* ── 热度阈值图例 ── */
+  .threshold-bar {
+    display: flex;
+    height: 28px;
+    border-radius: 14px;
+    overflow: hidden;
+    margin: 12px 0 8px;
+  }
+  .threshold-bar .seg {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    color: #fff;
+    font-weight: 500;
+    font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif;
+  }
+  .seg.l0  { background: #B0BEC5; }
+  .seg.l25 { background: #81D4FA; }
+  .seg.l37 { background: #4FC3F7; }
+  .seg.l50 { background: #FFB74D; }
+  .seg.l75 { background: #FF8A65; }
+  .seg.l100 { background: #E53935; }
+
+  /* ── 纳斯达克表格 ── */
+  .table-wrap {
+    overflow-x: auto;
+    max-height: 420px;
+    overflow-y: auto;
+  }
+  .data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  .data-table th {
+    position: sticky;
+    top: 0;
+    background: #F5F5F5;
+    padding: 10px 12px;
+    text-align: center;
+    font-weight: 500;
+    color: #616161;
+    border-bottom: 2px solid #E0E0E0;
+    white-space: nowrap;
+    font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif;
+  }
+  .data-table td {
+    padding: 8px 12px;
+    text-align: center;
+    border-bottom: 1px solid #F0F0F0;
+    white-space: nowrap;
+  }
+  .data-table tr:hover td { background: #FAFAFA; }
+  .data-table .row-weekend td { background: #F8F8F8; color: #BDBDBD; }
+  .data-table .buzz-cell {
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-weight: 500;
+    font-size: 12px;
+  }
+  .buzz-ice   { background: #ECEFF1; color: #90A4AE; }
+  .buzz-weak  { background: #E1F5FE; color: #039BE5; }
+  .buzz-base  { background: #B3E5FC; color: #0288D1; }
+  .buzz-mid   { background: #FFF3E0; color: #EF6C00; }
+  .buzz-high  { background: #FBE9E7; color: #E64A19; }
+  .buzz-peak  { background: #FFEBEE; color: #C62828; }
+
+  /* ── 图例切换 ── */
   .empty-state {
     text-align: center;
     padding: 60px 20px;
     color: #9E9E9E;
-  }
-  .empty-state .icon {
-    font-size: 48px;
-    margin-bottom: 12px;
-    display: block;
   }
   .footer {
     text-align: center;
@@ -147,41 +255,88 @@
     font-size: 12px;
     color: #BDBDBD;
   }
+
+  /* ── 响应式 ── */
+  @media (max-width: 640px) {
+    .top-bar { padding: 18px 16px 14px; }
+    .top-bar h1 { font-size: 20px; }
+    .card { padding: 16px; }
+    #chart { height: 380px; }
+    .data-table { font-size: 11px; }
+    .data-table th, .data-table td { padding: 6px 8px; }
+  }
 </style>
 </head>
 <body>
 
 <div class="top-bar">
   <h1>
-    <span class="icon material-symbols-outlined">trending_up</span>
+    <span class="icon material-symbols-outlined">rocket_launch</span>
     HeatIndex
   </h1>
-  <div class="desc">股票热度指数 — 价格走势 × 股吧讨论热度</div>
-  <div class="stock-badge" id="stockBadge">601838 成都银行</div>
+  <div class="desc">纳斯达克热度指数 — 广发纳指ETF × 股吧讨论热度</div>
+  <div class="stock-badge" id="stockBadge">159941 广发纳指ETF</div>
 </div>
 
 <div class="main">
+  <!-- 图表卡片 -->
   <div class="card">
     <div class="card-head">
-      <h2>热度指数</h2>
+      <h2>热度指数与价格走势</h2>
       <span class="update-time" id="updateTime">加载中...</span>
     </div>
+
+    <!-- 热度阈值色条 -->
+    <div class="threshold-bar">
+      <div class="seg l0">冰点 0</div>
+      <div class="seg l25">微弱 25</div>
+      <div class="seg l37">基础活跃 37</div>
+      <div class="seg l50">中等热度 50</div>
+      <div class="seg l75">高热度 75</div>
+      <div class="seg l100">爆款顶流 100</div>
+    </div>
+
     <div class="legend-row">
       <div class="legend-item">
-        <span class="legend-dot buzz"></span> 热度指数 (0 – 273)
+        <span class="legend-dot buzz"></span> 热度指数 (0–100)
       </div>
       <div class="legend-item">
-        <span class="legend-dot price"></span> 收盘价（虚线 = 非交易日沿用）
+        <span class="legend-dot price"></span> 收盘价（虚线=非交易日沿用）
       </div>
     </div>
+
+    <!-- 日期范围按钮 -->
+    <div class="range-bar" id="rangeBar">
+      <button class="range-btn active" data-range="30">30天</button>
+      <button class="range-btn" data-range="90">3个月</button>
+      <button class="range-btn" data-range="180">6个月</button>
+      <button class="range-btn" data-range="365">1年</button>
+      <button class="range-btn" data-range="all">全部</button>
+    </div>
+
     <div id="chart"></div>
   </div>
 
+  <!-- 概览卡片 -->
   <div class="card">
     <div class="card-head"><h2>概览</h2></div>
-    <div class="stats" id="stats">
+    <div class="stats-grid" id="stats">
       <div class="empty-state">
         <span class="icon material-symbols-outlined">cloud_off</span>
+        暂无数据
+      </div>
+    </div>
+  </div>
+
+  <!-- 纳斯达克数据表 -->
+  <div class="card">
+    <div class="card-head">
+      <h2>纳斯达克数据明细</h2>
+      <span style="font-size:12px;color:#9E9E9E" id="tableInfo"></span>
+    </div>
+    <div class="table-wrap" id="tableWrap">
+      <div class="empty-state">
+        <span class="icon material-symbols-outlined">table_rows</span>
         暂无数据
       </div>
     </div>
@@ -193,211 +348,317 @@
 </div>
 
 <script>
-(async function () {
-  const resp = await fetch('data/dashboard_data.json');
-  const data = await resp.json();
-
-  document.getElementById('stockBadge').textContent =
-    data.symbol + ' ' + (data.name || '');
-
-  if (data.updated) {
-    const d = new Date(data.updated);
-    document.getElementById('updateTime').textContent =
-      '更新于 ' + d.toLocaleString('zh-CN');
-  }
-
-  const records = data.records || [];
-  if (!records.length) return;
-
-  const dates = records.map(r => r.date);
-  const buzz = records.map(r => r.buzz_index ?? null);
-
-  // ── 价格：两个系列叠层实现虚线缺口 ──
-  // 底层虚线：全部点位（含非交易日延续），无圆点
-  const dashedPrice = records.map(r => r.close ?? null);
-  // 上层实线：仅交易日有值，非交易日 null → connectNulls:false 自然断开
-  const solidPrice = records.map(r => r.is_trading ? (r.close ?? null) : null);
-
-  // ── 概览统计 ──
-  const latestTrading = [...records].reverse().find(r => r.is_trading) || records[records.length - 1];
-  const prevTrading = records.filter(r => r.is_trading).slice(-2);
-  const latest = latestTrading;
-  const prev = prevTrading.length > 1 ? prevTrading[0] : null;
-  const latestBuzz = latest.buzz_index ?? 0;
-  const latestPrice = latest.close ?? 0;
-  const prevPrice = prev?.close ?? latestPrice;
-  const priceChange = latestPrice - prevPrice;
-  const priceChangePct = prevPrice ? ((priceChange / prevPrice) * 100) : 0;
-
+(function () {
+  // ══════════════════════════════════════════
+  // 热度档位
+  // ══════════════════════════════════════════
   function buzzLevel(v) {
-    if (v >= 200) return '极度狂热';
-    if (v >= 150) return '高度关注';
-    if (v >= 100) return '升温中';
-    if (v >= 50)  return '正常';
-    return '冷清';
+    if (v >= 100) return { label: '爆款顶流', cls: 'buzz-peak' };
+    if (v >= 75)  return { label: '高热度',   cls: 'buzz-high' };
+    if (v >= 50)  return { label: '中等热度', cls: 'buzz-mid'  };
+    if (v >= 37)  return { label: '基础活跃', cls: 'buzz-base' };
+    if (v >= 25)  return { label: '微弱',     cls: 'buzz-weak' };
+    return { label: '冰点', cls: 'buzz-ice' };
   }
 
-  document.getElementById('stats').innerHTML = `
-    <div class="stat-box">
-      <div class="label">热度指数</div>
-      <div class="value buzz">${latestBuzz}</div>
-      <div class="change" style="color:#7C4DFF">${buzzLevel(latestBuzz)}</div>
-    </div>
-    <div class="stat-box">
-      <div class="label">收盘价</div>
-      <div class="value">${latestPrice.toFixed(2)}</div>
-      <div class="change ${priceChange >= 0 ? 'up' : 'down'}">
-        ${priceChange >= 0 ? '+' : ''}${priceChange.toFixed(2)}
-        (${priceChangePct >= 0 ? '+' : ''}${priceChangePct.toFixed(2)}%)
-      </div>
-    </div>
-    <div class="stat-box">
-      <div class="label">最高价</div>
-      <div class="value">${(latest.high ?? latestPrice).toFixed(2)}</div>
-    </div>
-    <div class="stat-box">
-      <div class="label">最低价</div>
-      <div class="value">${(latest.low ?? latestPrice).toFixed(2)}</div>
-    </div>
-    <div class="stat-box">
-      <div class="label">成交量</div>
-      <div class="value">${((latest.volume ?? 0) / 10000).toFixed(0)}<span style="font-size:14px;color:#9E9E9E">万手</span></div>
-    </div>
-  `;
+  // ══════════════════════════════════════════
+  // 加载数据
+  // ══════════════════════════════════════════
+  fetch('data/dashboard_data.json')
+    .then(r => r.json())
+    .then(data => {
+      init(data);
+    })
+    .catch(e => {
+      console.error(e);
+      document.getElementById('updateTime').textContent = '数据加载失败';
+    });
 
-  // ── 标记非交易日（周六日浅色背景） ──
-  const weekendMarks = [];
-  records.forEach((r, i) => {
-    const d = new Date(r.date);
-    const dow = d.getDay();
-    if (dow === 0 || dow === 6) {
-      weekendMarks.push({
-        xAxis: r.date,
-        itemStyle: { color: 'rgba(0,0,0,0.04)' },
-      });
+  function init(data) {
+    document.getElementById('stockBadge').textContent =
+      data.symbol + ' ' + (data.name || '') + '  ×  ' + (data.guba_code || '');
+
+    if (data.updated) {
+      const d = new Date(data.updated);
+      document.getElementById('updateTime').textContent =
+        '更新于 ' + d.toLocaleString('zh-CN');
     }
-  });
 
-  // ── 折线图 ──
-  const chart = echarts.init(document.getElementById('chart'));
+    const records = data.records || [];
+    if (!records.length) return;
 
-  chart.setOption({
-    tooltip: {
-      trigger: 'axis',
-      backgroundColor: '#fff',
-      borderColor: '#E0E0E0',
-      textStyle: { color: '#212121', fontSize: 13 },
-      formatter: function (params) {
-        let s = '<b>' + params[0].axisValue + '</b><br/>';
-        const rec = records[params[0].dataIndex];
-        params.forEach(p => {
-          const val = p.value && typeof p.value === 'object' ? p.value.value : p.value;
-          if (val == null) return;
-          if (p.seriesName === '热度指数') {
-            s += '<span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:#7C4DFF;margin-right:6px;"></span>';
-            s += '热度指数：<b style="color:#7C4DFF">' + val + '</b>';
-            if (!rec.is_trading) s += ' <span style="color:#9E9E9E;font-size:11px">(非交易日)</span>';
-            s += '<br/>';
-          } else {
-            s += '<span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:#9E9E9E;margin-right:6px;"></span>';
-            s += '收盘价：<b>' + val.toFixed(2) + '</b>';
-            if (!rec.is_trading) s += ' <span style="color:#9E9E9E;font-size:11px">(沿用上日)</span>';
-          }
-        });
-        return s;
+    // ══════════════════════════════════════
+    // 概览统计
+    // ══════════════════════════════════════
+    const tradingList = records.filter(r => r.is_trading);
+    const latestTrading = tradingList.length
+      ? tradingList[tradingList.length - 1]
+      : records[records.length - 1];
+    const prevTrading = tradingList.length > 1 ? tradingList[tradingList.length - 2] : null;
+    const latest = latestTrading;
+    const prev = prevTrading;
+    const latestBuzz = latest.buzz_index ?? 0;
+    const latestPrice = latest.close ?? 0;
+    const prevPrice = prev?.close ?? latestPrice;
+    const priceChange = latestPrice - prevPrice;
+    const priceChangePct = prevPrice ? ((priceChange / prevPrice) * 100) : 0;
+    const bl = buzzLevel(latestBuzz);
+
+    document.getElementById('stats').innerHTML = `
+      <div class="stat-box">
+        <div class="label">热度指数</div>
+        <div class="value buzz">${latestBuzz}</div>
+        <div class="change"><span class="buzz-cell ${bl.cls}">${bl.label}</span></div>
+      </div>
+      <div class="stat-box">
+        <div class="label">收盘价</div>
+        <div class="value">${latestPrice.toFixed(3)}</div>
+        <div class="change ${priceChange >= 0 ? 'change-up' : 'change-down'}">
+          ${priceChange >= 0 ? '+' : ''}${priceChange.toFixed(3)}
+          (${priceChangePct >= 0 ? '+' : ''}${priceChangePct.toFixed(2)}%)
+        </div>
+      </div>
+      <div class="stat-box">
+        <div class="label">最高价</div>
+        <div class="value">${(latest.high ?? latestPrice).toFixed(3)}</div>
+      </div>
+      <div class="stat-box">
+        <div class="label">最低价</div>
+        <div class="value">${(latest.low ?? latestPrice).toFixed(3)}</div>
+      </div>
+      <div class="stat-box">
+        <div class="label">成交量</div>
+        <div class="value">${((latest.volume ?? 0) / 10000).toFixed(0)}<span style="font-size:13px;color:#9E9E9E">万手</span></div>
+      </div>
+      <div class="stat-box">
+        <div class="label">帖子池</div>
+        <div class="value">${data.posts_count ?? 0}</div>
+        <div class="change" style="color:#9E9E9E">条</div>
+      </div>
+    `;
+
+    // ══════════════════════════════════════
+    // 图表
+    // ══════════════════════════════════════
+    const dates = records.map(r => r.date);
+    const buzz = records.map(r => r.buzz_index ?? null);
+    const dashedPrice = records.map(r => r.close ?? null);
+    const solidPrice = records.map(r => r.is_trading ? (r.close ?? null) : null);
+
+    const chart = echarts.init(document.getElementById('chart'));
+
+    function buildOption(startIdx, endIdx) {
+      const sliceDates = dates.slice(startIdx, endIdx);
+      const sliceBuzz  = buzz.slice(startIdx, endIdx);
+      const sliceDashed = dashedPrice.slice(startIdx, endIdx);
+      const sliceSolid  = solidPrice.slice(startIdx, endIdx);
+
+      // 非交易日背景
+      const weekendMarks = [];
+      for (let i = startIdx; i < endIdx; i++) {
+        const d = new Date(records[i].date);
+        const dow = d.getDay();
+        if (dow === 0 || dow === 6) {
+          weekendMarks.push({ xAxis: records[i].date });
+        }
       }
-    },
-    legend: { show: false },
-    grid: { left: 80, right: 92, top: 40, bottom: 36 },
-    xAxis: {
-      type: 'category',
-      data: dates,
-      axisLine: { lineStyle: { color: '#E0E0E0' } },
-      axisTick: { show: false },
-      axisLabel: {
-        color: '#9E9E9E',
-        fontSize: 11,
-        formatter: v => v.slice(5),
-      },
-      markArea: weekendMarks.length ? {
-        silent: true,
-        data: weekendMarks,
-      } : undefined,
-    },
-    yAxis: [
-      {
-        type: 'value',
-        name: '热度指数',
-        nameTextStyle: { color: '#7C4DFF', fontSize: 12, padding: [0, 0, 0, 0] },
-        nameGap: 12,
-        min: 0,
-        max: 273,
-        interval: 68,
-        axisLine: { show: false },
-        axisTick: { show: false },
-        splitLine: { lineStyle: { color: '#F0F0F0', type: 'dashed' } },
-        axisLabel: { color: '#7C4DFF', fontSize: 11, margin: 8 },
-      },
-      {
-        type: 'value',
-        name: '收盘价',
-        nameTextStyle: { color: '#9E9E9E', fontSize: 12, padding: [0, 0, 0, 0] },
-        nameGap: 12,
-        axisLine: { show: false },
-        axisTick: { show: false },
-        splitLine: { show: false },
-        axisLabel: {
-          color: '#9E9E9E',
-          fontSize: 11,
-          margin: 8,
-          formatter: v => v.toFixed(2),
-        },
-      },
-    ],
-    series: [
-      {
-        name: '热度指数',
-        type: 'line',
-        yAxisIndex: 0,
-        data: buzz,
-        smooth: 0.4,
-        symbol: 'circle',
-        symbolSize: 4,
-        lineStyle: { color: '#7C4DFF', width: 2.5 },
-        itemStyle: { color: '#7C4DFF' },
-        areaStyle: {
-          color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-            { offset: 0, color: 'rgba(124, 77, 255, 0.15)' },
-            { offset: 1, color: 'rgba(124, 77, 255, 0.01)' },
-          ]),
-        },
-      },
-      {
-        name: '收盘价（虚线）',
-        type: 'line',
-        yAxisIndex: 1,
-        data: dashedPrice,
-        smooth: 0.4,
-        symbol: 'none',
-        lineStyle: { color: '#BDBDBD', width: 1.5, type: 'dashed' },
-        itemStyle: { color: '#BDBDBD' },
-      },
-      {
-        name: '收盘价',
-        type: 'line',
-        yAxisIndex: 1,
-        data: solidPrice,
-        connectNulls: false,
-        smooth: 0.4,
-        symbol: 'circle',
-        symbolSize: 3,
-        lineStyle: { color: '#BDBDBD', width: 2, type: 'solid' },
-        itemStyle: { color: '#BDBDBD' },
-      },
-    ],
-  });
 
-  window.addEventListener('resize', () => chart.resize());
+      return {
+        tooltip: {
+          trigger: 'axis',
+          backgroundColor: '#fff',
+          borderColor: '#E0E0E0',
+          textStyle: { color: '#212121', fontSize: 13, fontFamily: 'Microsoft YaHei' },
+          formatter: function (params) {
+            let s = '<b>' + params[0].axisValue + '</b><br/>';
+            const rec = records[params[0].dataIndex];
+            params.forEach(p => {
+              const val = p.value && typeof p.value === 'object' ? p.value.value : p.value;
+              if (val == null) return;
+              if (p.seriesName === '热度指数') {
+                const bl2 = buzzLevel(val);
+                s += '<span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:#7C4DFF;margin-right:6px;"></span>';
+                s += '热度指数：<b style="color:#7C4DFF">' + val + '</b>';
+                s += ' <span class="buzz-cell ' + bl2.cls + '" style="display:inline-block">' + bl2.label + '</span>';
+                if (!rec.is_trading) s += ' <span style="color:#9E9E9E;font-size:11px">(非交易日)</span>';
+              } else {
+                s += '<span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:#9E9E9E;margin-right:6px;"></span>';
+                s += '收盘价：<b>' + val.toFixed(3) + '</b>';
+                if (!rec.is_trading) s += ' <span style="color:#9E9E9E;font-size:11px">(沿用上日)</span>';
+              }
+            });
+            return s;
+          }
+        },
+        legend: { show: false },
+        grid: { left: 72, right: 80, top: 30, bottom: 72 },
+        xAxis: {
+          type: 'category',
+          data: sliceDates,
+          axisLine: { lineStyle: { color: '#E0E0E0' } },
+          axisTick: { show: false },
+          axisLabel: {
+            color: '#9E9E9E',
+            fontSize: 11,
+            fontFamily: 'Microsoft YaHei',
+            formatter: v => v.slice(5),
+          },
+        },
+        yAxis: [
+          {
+            type: 'value',
+            name: '热度指数',
+            nameTextStyle: { color: '#7C4DFF', fontSize: 12, fontFamily: 'Microsoft YaHei' },
+            nameGap: 14,
+            min: function (v) { return Math.max(0, v.min - 5); },
+            max: function (v) { return Math.min(100, v.max + 5); },
+            axisLine: { show: false },
+            axisTick: { show: false },
+            splitLine: { lineStyle: { color: '#F0F0F0', type: 'dashed' } },
+            axisLabel: { color: '#7C4DFF', fontSize: 11, margin: 8 },
+          },
+          {
+            type: 'value',
+            name: '收盘价',
+            nameTextStyle: { color: '#9E9E9E', fontSize: 12, fontFamily: 'Microsoft YaHei' },
+            nameGap: 14,
+            min: function (v) { return v.min - (v.max - v.min) * 0.1; },
+            max: function (v) { return v.max + (v.max - v.min) * 0.1; },
+            axisLine: { show: false },
+            axisTick: { show: false },
+            splitLine: { show: false },
+            axisLabel: {
+              color: '#9E9E9E',
+              fontSize: 11,
+              margin: 8,
+              formatter: v => v.toFixed(2),
+            },
+          },
+        ],
+        dataZoom: [
+          {
+            type: 'slider',
+            start: 0,
+            end: 100,
+            height: 24,
+            bottom: 8,
+            borderColor: '#E0E0E0',
+            fillerColor: 'rgba(124, 77, 255, 0.08)',
+            handleStyle: { color: '#7C4DFF' },
+            textStyle: { fontSize: 10, fontFamily: 'Microsoft YaHei' },
+          },
+          {
+            type: 'inside',
+            start: 0,
+            end: 100,
+          },
+        ],
+        series: [
+          {
+            name: '热度指数',
+            type: 'line',
+            yAxisIndex: 0,
+            data: sliceBuzz,
+            smooth: 0.4,
+            symbol: 'circle',
+            symbolSize: 4,
+            lineStyle: { color: '#7C4DFF', width: 2.5 },
+            itemStyle: { color: '#7C4DFF' },
+            areaStyle: {
+              color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                { offset: 0, color: 'rgba(124, 77, 255, 0.18)' },
+                { offset: 1, color: 'rgba(124, 77, 255, 0.01)' },
+              ]),
+            },
+          },
+          {
+            name: '收盘价（虚线）',
+            type: 'line',
+            yAxisIndex: 1,
+            data: sliceDashed,
+            smooth: 0.4,
+            symbol: 'none',
+            lineStyle: { color: '#BDBDBD', width: 1.5, type: 'dashed' },
+            itemStyle: { color: '#BDBDBD' },
+          },
+          {
+            name: '收盘价',
+            type: 'line',
+            yAxisIndex: 1,
+            data: sliceSolid,
+            connectNulls: false,
+            smooth: 0.4,
+            symbol: 'circle',
+            symbolSize: 3,
+            lineStyle: { color: '#616161', width: 2, type: 'solid' },
+            itemStyle: { color: '#616161' },
+          },
+        ],
+      };
+    }
+
+    chart.setOption(buildOption(0, records.length));
+
+    // ══════════════════════════════════════
+    // 日期范围按钮
+    // ══════════════════════════════════════
+    document.getElementById('rangeBar').addEventListener('click', function (e) {
+      const btn = e.target.closest('.range-btn');
+      if (!btn) return;
+      const range = btn.dataset.range;
+
+      // 更新按钮激活态
+      this.querySelectorAll('.range-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+
+      if (range === 'all') {
+        chart.setOption(buildOption(0, records.length));
+      } else {
+        const days = parseInt(range);
+        const endIdx = records.length;
+        const startIdx = Math.max(0, endIdx - days);
+        chart.setOption(buildOption(startIdx, endIdx));
+      }
+    });
+
+    window.addEventListener('resize', () => chart.resize());
+
+    // ══════════════════════════════════════
+    // 纳斯达克数据表
+    // ══════════════════════════════════════
+    function buildTable() {
+      const rows = records.slice().reverse();
+      document.getElementById('tableInfo').textContent = '共 ' + rows.length + ' 条';
+
+      let html = '<table class="data-table"><thead><tr>';
+      html += '<th>日期</th><th>热度指数</th><th>档位</th><th>收盘价</th><th>开盘价</th><th>最高</th><th>最低</th><th>成交量(万手)</th><th>交易日</th>';
+      html += '</tr></thead><tbody>';
+
+      rows.forEach(r => {
+        const d = new Date(r.date);
+        const dow = d.getDay();
+        const isWeekend = dow === 0 || dow === 6;
+        const bl = buzzLevel(r.buzz_index ?? 0);
+
+        html += '<tr class="' + (isWeekend ? 'row-weekend' : '') + '">';
+        html += '<td>' + r.date + '</td>';
+        html += '<td><b>' + (r.buzz_index ?? 0) + '</b></td>';
+        html += '<td><span class="buzz-cell ' + bl.cls + '">' + bl.label + '</span></td>';
+        html += '<td>' + (r.close != null ? r.close.toFixed(3) : '—') + '</td>';
+        html += '<td>' + (r.open != null ? r.open.toFixed(3) : '—') + '</td>';
+        html += '<td>' + (r.high != null ? r.high.toFixed(3) : '—') + '</td>';
+        html += '<td>' + (r.low != null ? r.low.toFixed(3) : '—') + '</td>';
+        html += '<td>' + (r.volume != null ? (r.volume / 10000).toFixed(0) : '—') + '</td>';
+        html += '<td>' + (r.is_trading ? '<span style="color:#43A047">是</span>' : '<span style="color:#E0E0E0">否</span>') + '</td>';
+        html += '</tr>';
+      });
+
+      html += '</tbody></table>';
+      document.getElementById('tableWrap').innerHTML = html;
+    }
+
+    buildTable();
+  }
 })();
 </script>
 

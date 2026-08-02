@@ -1,7 +1,7 @@
 """HeatIndex Pipeline
-采集成都银行(601838)每日价格 + 东方财富股吧热度 → 输出 dashboard_data.json
+采集广发纳指ETF(159941)每日价格 + 东方财富纳斯达克吧(zsgjndx)热度 → 输出 dashboard_data.json
 独立脚本，供 GitHub Actions 调用。
-帖子数据持久化：data/guba_posts.json，增量累积不丢弃。
+帖子数据持久化：data/guba_posts_zsgjndx.json，增量累积不丢弃。
 """
 
 import json
@@ -18,12 +18,12 @@ import requests
 # ═══════════════════════════════════════════════════
 # 配置
 # ═══════════════════════════════════════════════════
-SYMBOL = "601838"
-SYMBOL_NAME = "成都银行"
-GUBA_CODE = "601838"
+SYMBOL = "159941"
+SYMBOL_NAME = "广发纳指ETF"
+GUBA_CODE = "zsgjndx"
 
 BUZZ_SCALE_MIN = 0
-BUZZ_SCALE_MAX = 273
+BUZZ_SCALE_MAX = 100
 
 WEIGHT_READ = 0.4
 WEIGHT_REPLY = 0.6
@@ -33,10 +33,10 @@ GUBA_MAX_PAGES = 30
 
 DATA_DIR = "data"
 OUTPUT_FILE = "dashboard_data.json"
-POSTS_FILE = "guba_posts.json"
+POSTS_FILE = f"guba_posts_{GUBA_CODE}.json"
 
 # ═══════════════════════════════════════════════════
-# 反检测请求头（适配自 mommy-index）
+# 反检测请求头
 # ═══════════════════════════════════════════════════
 _USER_AGENTS = [
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
@@ -246,10 +246,13 @@ def fetch_guba_posts(code: str, start_date: str) -> list[dict]:
 
 
 # ═══════════════════════════════════════════════════
-# 热度计算
+# 热度计算（0-100 标度）
 # ═══════════════════════════════════════════════════
 
 def calc_buzz_index(posts: list[dict], target_date: str) -> float:
+    """计算热度指数，0-100 标度。
+    0=冰点  25=微弱  37=基础活跃  50=中等  75=高热度  100=爆款顶流
+    """
     target_dt = datetime.strptime(target_date, "%Y-%m-%d")
     total_score = 0.0
 
@@ -280,8 +283,10 @@ def run():
     end_date = end_dt.strftime("%Y%m%d")
     start_date = start_dt.strftime("%Y%m%d")
 
-    print(f"[HeatIndex] 采集 {SYMBOL} {SYMBOL_NAME}")
+    print(f"[HeatIndex] 采集 {SYMBOL} {SYMBOL_NAME}  ×  股吧 {GUBA_CODE}")
     print(f"  日期范围: {start_date} → {end_date}")
+    print(f"  热度标度: {BUZZ_SCALE_MIN}–{BUZZ_SCALE_MAX}")
+    print(f"  阈值: 冰点0 / 微弱25 / 基础活跃37 / 中等50 / 高热度75 / 爆款顶流100")
 
     # 生成全部日历日（含非交易日）
     all_dates = []
@@ -351,6 +356,7 @@ def run():
     dashboard = {
         "symbol": SYMBOL,
         "name": SYMBOL_NAME,
+        "guba_code": GUBA_CODE,
         "updated": datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
         "records": records,
         "posts_count": len(merged),
