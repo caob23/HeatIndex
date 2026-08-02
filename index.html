@@ -212,18 +212,23 @@
   const dates = records.map(r => r.date);
   const buzz = records.map(r => r.buzz_index ?? null);
 
-  // ── 价格数据：非交易日线型改为虚线 ──
+  // ── 价格数据：data[i].lineStyle 控制 i→i+1 这段线的样式 ──
   const priceData = records.map((r, i) => {
     const item = { value: r.close ?? null };
-    // 上一日为交易日、当前为非交易日 → 这一段虚线（水平延续）
-    const prevIsTrading = i > 0 && records[i - 1].is_trading;
+    const next = i + 1 < records.length ? records[i + 1] : null;
     const curIsTrading = r.is_trading;
+    const nextIsNT = next && !next.is_trading;
+
     if (!curIsTrading) {
-      item.lineStyle = { type: 'dashed', width: 1.5 };
+      // 非交易日：无圆点，下一段虚线（延续上日价格）
+      item.lineStyle = { type: 'dashed', width: 1.5, dashOffset: 0 };
       item.symbol = 'none';
       item.symbolSize = 0;
-    } else if (i > 0 && !prevIsTrading && curIsTrading) {
-      // 非交易日后的第一个交易日，恢复实线
+    } else if (nextIsNT) {
+      // 交易日且下一天是非交易日 → i→i+1 虚线
+      item.lineStyle = { type: 'dashed', width: 1.5, dashOffset: 0 };
+    } else if (curIsTrading && !nextIsNT && next) {
+      // 交易日且下一天也是交易日 → 实线
       item.lineStyle = { type: 'solid' };
     }
     return item;
