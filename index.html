@@ -12,10 +12,11 @@
 
 <style>
   :root {
-    --buzz-color: #7C4DFF;
-    --price-color: #757575;
+    --buzz-color: #FF6B35;
+    --price-color: #1976D2;
     --volume-color: #FF7043;
     --slope-color: #26A69A;
+    --log-color: #AB47BC;
     --bg: #F5F5F5;
     --card-bg: #FFFFFF;
   }
@@ -112,6 +113,7 @@
   .legend-dot.price { background: var(--price-color); }
   .legend-dot.volume { background: var(--volume-color); }
   .legend-dot.slope { background: var(--slope-color); }
+  .legend-dot.log { background: var(--log-color); }
 
   /* ── 时间范围按钮 ── */
   .range-bar {
@@ -132,19 +134,19 @@
     font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif;
   }
   .range-btn:hover {
-    border-color: #7C4DFF;
-    color: #7C4DFF;
+    border-color: #FF6B35;
+    color: #FF6B35;
   }
   .range-btn.active {
-    background: #7C4DFF;
+    background: #FF6B35;
     color: #fff;
-    border-color: #7C4DFF;
+    border-color: #FF6B35;
   }
 
   /* ── 图表 ── */
   #chart {
     width: 100%;
-    height: 520px;
+    height: 560px;
   }
 
   /* ── 概览 ── */
@@ -173,6 +175,7 @@
   .stat-box .value.buzz { color: var(--buzz-color); }
   .stat-box .value.volume { color: var(--volume-color); }
   .stat-box .value.slope { color: var(--slope-color); }
+  .stat-box .value.log { color: var(--log-color); }
   .stat-box .change {
     font-size: 12px;
     margin-top: 2px;
@@ -320,6 +323,9 @@
       <div class="legend-item">
         <span class="legend-dot slope"></span> 价格斜率(5日)
       </div>
+      <div class="legend-item">
+        <span class="legend-dot log"></span> 收盘价(对数)
+      </div>
     </div>
 
     <!-- 日期范围按钮 -->
@@ -422,6 +428,7 @@
     const priceChangePct = prevPrice ? ((priceChange / prevPrice) * 100) : 0;
     const bl = buzzLevel(latestBuzz);
     const latestSlope = latest.slope;
+    const latestLogClose = latest.log_close;
 
     document.getElementById('stats').innerHTML = `
       <div class="stat-box">
@@ -454,6 +461,10 @@
         <div class="value slope">${latestSlope != null ? latestSlope.toFixed(4) : '—'}</div>
       </div>
       <div class="stat-box">
+        <div class="label">对数价格</div>
+        <div class="value log">${latestLogClose != null ? 'ln(price)=' + latestLogClose.toFixed(4) : '—'}</div>
+      </div>
+      <div class="stat-box">
         <div class="label">帖子池</div>
         <div class="value">${data.posts_count ?? 0}</div>
         <div class="change" style="color:#9E9E9E">条</div>
@@ -468,6 +479,7 @@
     const priceData = records.map(r => r.close ?? null);
     const volumeData = records.map(r => r.is_trading ? ((r.volume ?? 0) / 100) : null);
     const slopeData = records.map(r => r.slope ?? null);
+    const logCloseData = records.map(r => r.log_close ?? null);
 
     // 构建非交易日 markArea（用于价格线和成交量线灰色底标注）
     const nonTradingAreas = [];
@@ -550,6 +562,60 @@
       ]);
     }
 
+    // 构建斜率非交易日间隙虚线连接
+    const slopeGapMarkLines = [];
+    let slGapStart = null;
+    let slGapStartVal = null;
+    for (let i = 0; i < records.length; i++) {
+      if (!records[i].is_trading) {
+        if (slGapStart === null) {
+          for (let j = i - 1; j >= 0; j--) {
+            if (records[j].is_trading && records[j].slope != null) {
+              slGapStart = j;
+              slGapStartVal = records[j].slope;
+              break;
+            }
+          }
+        }
+      } else {
+        if (slGapStart !== null && records[i].slope != null) {
+          slopeGapMarkLines.push([
+            { coord: [records[slGapStart].date, slGapStartVal] },
+            { coord: [records[i].date, records[i].slope] }
+          ]);
+          slGapStart = null;
+        } else if (slGapStart !== null && records[i].slope == null) {
+          slGapStart = null;
+        }
+      }
+    }
+
+    // 构建对数价格非交易日间隙虚线连接
+    const logPriceGapMarkLines = [];
+    let logGapStart = null;
+    let logGapStartVal = null;
+    for (let i = 0; i < records.length; i++) {
+      if (!records[i].is_trading) {
+        if (logGapStart === null) {
+          for (let j = i - 1; j >= 0; j--) {
+            if (records[j].is_trading) {
+              logGapStart = j;
+              logGapStartVal = records[j].log_close;
+              break;
+            }
+          }
+        }
+      } else {
+        if (logGapStart !== null) {
+          logPriceGapMarkLines.push([
+            { coord: [records[logGapStart].date, logGapStartVal] },
+            { coord: [records[i].date, records[i].log_close] }
+          ]);
+          logGapStart = null;
+        }
+      }
+    }
+
     const chart = echarts.init(document.getElementById('chart'));
 
     function buildOption(startIdx, endIdx) {
@@ -558,6 +624,7 @@
       const slicePrice = priceData.slice(startIdx, endIdx);
       const sliceVolume = volumeData.slice(startIdx, endIdx);
       const sliceSlope = slopeData.slice(startIdx, endIdx);
+      const sliceLogClose = logCloseData.slice(startIdx, endIdx);
 
       // 过滤当前窗口内的非交易日区域
       const windowNonTradingAreas = nonTradingAreas.filter(area => {
@@ -580,12 +647,12 @@
               if (val == null) return;
               if (p.seriesName === '热度指数') {
                 const bl2 = buzzLevel(val);
-                s += '<span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:#7C4DFF;margin-right:6px;"></span>';
-                s += '热度指数：<b style="color:#7C4DFF">' + val + '</b>';
+                s += '<span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:#FF6B35;margin-right:6px;"></span>';
+                s += '热度指数：<b style="color:#FF6B35">' + val + '</b>';
                 s += ' <span class="buzz-cell ' + bl2.cls + '" style="display:inline-block">' + bl2.label + '</span>';
                 if (!rec.is_trading) s += ' <span style="color:#9E9E9E;font-size:11px">(非交易日)</span>';
               } else if (p.seriesName === '收盘价') {
-                s += '<span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:#616161;margin-right:6px;"></span>';
+                s += '<span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:#1976D2;margin-right:6px;"></span>';
                 s += '收盘价：<b>' + val.toFixed(3) + '</b>';
                 if (!rec.is_trading) s += ' <span style="color:#9E9E9E;font-size:11px">(沿用上日)</span>';
               } else if (p.seriesName === '成交量(手)') {
@@ -594,18 +661,22 @@
               } else if (p.seriesName === '价格斜率(5日)') {
                 s += '<span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:#26A69A;margin-right:6px;"></span>';
                 s += '5日斜率：<b>' + val.toFixed(4) + '</b>';
+              } else if (p.seriesName === '收盘价(对数)') {
+                s += '<span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:#AB47BC;margin-right:6px;"></span>';
+                s += '对数价格：<b>' + val.toFixed(4) + '</b>';
+                if (!rec.is_trading) s += ' <span style="color:#9E9E9E;font-size:11px">(非交易日)</span>';
               }
             });
             return s;
           }
         },
         legend: {
-          data: ['热度指数', '收盘价', '成交量(手)', '价格斜率(5日)'],
-          selected: { '价格斜率(5日)': false },
+          data: ['热度指数', '收盘价', '成交量(手)', '价格斜率(5日)', '收盘价(对数)'],
+          selected: { '价格斜率(5日)': false, '收盘价(对数)': false },
           top: 0,
           textStyle: { fontSize: 11, fontFamily: 'Microsoft YaHei' },
         },
-        grid: { left: 80, right: 220, top: 40, bottom: 72 },
+        grid: { left: 80, right: 280, top: 40, bottom: 72 },
         xAxis: {
           type: 'category',
           data: sliceDates,
@@ -622,27 +693,27 @@
           {
             type: 'value',
             name: '热度指数',
-            nameTextStyle: { color: '#7C4DFF', fontSize: 12, fontFamily: 'Microsoft YaHei' },
-            nameGap: 12,
+            nameTextStyle: { color: '#FF6B35', fontSize: 12, fontFamily: 'Microsoft YaHei' },
+            nameGap: 10,
             min: function (v) { return Math.max(0, v.min - Math.max(3, (v.max - v.min) * 0.15)); },
             max: function (v) { return Math.min(100, v.max + Math.max(3, (v.max - v.min) * 0.15)); },
             axisLine: { show: false },
             axisTick: { show: false },
             splitLine: { lineStyle: { color: '#F0F0F0', type: 'dashed' } },
-            axisLabel: { color: '#7C4DFF', fontSize: 11, margin: 8 },
+            axisLabel: { color: '#FF6B35', fontSize: 11, margin: 8 },
           },
           {
             type: 'value',
             name: '收盘价',
-            nameTextStyle: { color: '#9E9E9E', fontSize: 12, fontFamily: 'Microsoft YaHei' },
-            nameGap: 12,
+            nameTextStyle: { color: '#1976D2', fontSize: 12, fontFamily: 'Microsoft YaHei' },
+            nameGap: 10,
             min: function (v) { return v.min - (v.max - v.min) * 0.05; },
             max: function (v) { return v.max + (v.max - v.min) * 0.05; },
             axisLine: { show: false },
             axisTick: { show: false },
             splitLine: { show: false },
             axisLabel: {
-              color: '#9E9E9E',
+              color: '#1976D2',
               fontSize: 11,
               margin: 8,
               formatter: v => v.toFixed(2),
@@ -652,7 +723,7 @@
             type: 'value',
             name: '成交量(手)',
             nameTextStyle: { color: '#FF7043', fontSize: 12, fontFamily: 'Microsoft YaHei' },
-            nameGap: 12,
+            nameGap: 10,
             min: function (v) { return v.min - (v.max - v.min) * 0.05; },
             max: function (v) { return v.max + (v.max - v.min) * 0.05; },
             axisLine: { show: false },
@@ -669,7 +740,7 @@
             type: 'value',
             name: '价格斜率',
             nameTextStyle: { color: '#26A69A', fontSize: 12, fontFamily: 'Microsoft YaHei' },
-            nameGap: 12,
+            nameGap: 10,
             axisLine: { show: false },
             axisTick: { show: false },
             splitLine: { show: false },
@@ -678,6 +749,21 @@
               fontSize: 11,
               margin: 8,
               formatter: v => v.toFixed(2),
+            },
+          },
+          {
+            type: 'value',
+            name: '对数价格',
+            nameTextStyle: { color: '#AB47BC', fontSize: 12, fontFamily: 'Microsoft YaHei' },
+            nameGap: 10,
+            axisLine: { show: false },
+            axisTick: { show: false },
+            splitLine: { show: false },
+            axisLabel: {
+              color: '#AB47BC',
+              fontSize: 11,
+              margin: 8,
+              formatter: v => v.toFixed(3),
             },
           },
         ],
@@ -689,8 +775,8 @@
             height: 24,
             bottom: 8,
             borderColor: '#E0E0E0',
-            fillerColor: 'rgba(124, 77, 255, 0.08)',
-            handleStyle: { color: '#7C4DFF' },
+            fillerColor: 'rgba(255, 107, 53, 0.08)',
+            handleStyle: { color: '#FF6B35' },
             textStyle: { fontSize: 10, fontFamily: 'Microsoft YaHei' },
           },
           {
@@ -705,15 +791,15 @@
             type: 'line',
             yAxisIndex: 0,
             data: sliceBuzz,
-            smooth: 0.4,
+            smooth: true,
             symbol: 'circle',
             symbolSize: 4,
-            lineStyle: { color: '#7C4DFF', width: 2.5 },
-            itemStyle: { color: '#7C4DFF' },
+            lineStyle: { color: '#FF6B35', width: 2.5 },
+            itemStyle: { color: '#FF6B35' },
             areaStyle: {
               color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-                { offset: 0, color: 'rgba(124, 77, 255, 0.18)' },
-                { offset: 1, color: 'rgba(124, 77, 255, 0.01)' },
+                { offset: 0, color: 'rgba(255, 107, 53, 0.18)' },
+                { offset: 1, color: 'rgba(255, 107, 53, 0.01)' },
               ]),
             },
           },
@@ -722,11 +808,11 @@
             type: 'line',
             yAxisIndex: 1,
             data: slicePrice,
-            smooth: 0.4,
+            smooth: true,
             symbol: 'circle',
             symbolSize: 3,
-            lineStyle: { color: '#616161', width: 2 },
-            itemStyle: { color: '#616161' },
+            lineStyle: { color: '#1976D2', width: 2 },
+            itemStyle: { color: '#1976D2' },
             markArea: {
               silent: true,
               data: windowNonTradingAreas,
@@ -736,7 +822,7 @@
               silent: true,
               symbol: 'none',
               data: priceGapMarkLines,
-              lineStyle: { color: '#616161', width: 2, type: 'dashed' },
+              lineStyle: { color: '#1976D2', width: 2, type: 'dashed' },
             },
           },
           {
@@ -744,6 +830,7 @@
             type: 'line',
             yAxisIndex: 2,
             data: sliceVolume,
+            smooth: true,
             connectNulls: false,
             symbol: 'circle',
             symbolSize: 3,
@@ -766,11 +853,44 @@
             type: 'line',
             yAxisIndex: 3,
             data: sliceSlope,
+            smooth: true,
             connectNulls: false,
             symbol: 'circle',
             symbolSize: 3,
-            lineStyle: { color: '#26A69A', width: 2, type: 'dashed' },
+            lineStyle: { color: '#26A69A', width: 2 },
             itemStyle: { color: '#26A69A' },
+            markLine: {
+              silent: true,
+              symbol: 'none',
+              data: [
+                ...slopeGapMarkLines,
+                { yAxis: 0, lineStyle: { color: '#999', type: 'dashed', width: 1 }, label: { show: true, formatter: '零线' } },
+              ],
+              lineStyle: { color: '#26A69A', width: 2, type: 'dashed' },
+            },
+          },
+          {
+            name: '收盘价(对数)',
+            type: 'line',
+            yAxisIndex: 4,
+            data: sliceLogClose,
+            smooth: true,
+            connectNulls: false,
+            symbol: 'circle',
+            symbolSize: 3,
+            lineStyle: { color: '#AB47BC', width: 2 },
+            itemStyle: { color: '#AB47BC' },
+            markArea: {
+              silent: true,
+              data: windowNonTradingAreas,
+              itemStyle: { color: 'rgba(200, 200, 200, 0.18)' },
+            },
+            markLine: {
+              silent: true,
+              symbol: 'none',
+              data: logPriceGapMarkLines,
+              lineStyle: { color: '#AB47BC', width: 2, type: 'dashed' },
+            },
           },
         ],
       };
@@ -810,7 +930,7 @@
       document.getElementById('tableInfo').textContent = '共 ' + rows.length + ' 条';
 
       let html = '<table class="data-table"><thead><tr>';
-      html += '<th>日期</th><th>热度指数</th><th>档位</th><th>收盘价</th><th>开盘价</th><th>最高</th><th>最低</th><th>成交量(手)</th><th>5日斜率</th><th>交易日</th>';
+      html += '<th>日期</th><th>热度指数</th><th>档位</th><th>收盘价</th><th>开盘价</th><th>最高</th><th>最低</th><th>成交量(手)</th><th>5日斜率</th><th>对数价格</th><th>交易日</th>';
       html += '</tr></thead><tbody>';
 
       rows.forEach(r => {
@@ -835,6 +955,7 @@
         html += '<td>' + (r.low != null ? r.low.toFixed(3) : '—') + '</td>';
         html += '<td>' + (r.volume != null ? ((r.volume / 100)).toFixed(0) : '—') + '</td>';
         html += '<td>' + (r.slope != null ? r.slope.toFixed(4) : '—') + '</td>';
+        html += '<td>' + (r.log_close != null ? r.log_close.toFixed(4) : '—') + '</td>';
         html += '<td>' + (r.is_trading ? '<span style="color:#43A047">是</span>' : '<span style="color:#E0E0E0">否</span>') + '</td>';
         html += '</tr>';
       });
