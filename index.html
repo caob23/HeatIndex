@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>HeatIndex · 成都银行热度指数</title>
+<title>HeatIndex Â· æé½é¶è¡ç­åº¦ææ°</title>
 
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/mdui@2.0.3/dist/css/mdui.min.css">
 <script src="https://cdn.jsdelivr.net/npm/mdui@2.0.3/dist/js/mdui.min.js"></script>
@@ -156,40 +156,40 @@
     <span class="icon material-symbols-outlined">trending_up</span>
     HeatIndex
   </h1>
-  <div class="desc">股票热度指数 — 价格走势 × 股吧讨论热度</div>
-  <div class="stock-badge" id="stockBadge">601838 成都银行</div>
+  <div class="desc">è¡ç¥¨ç­åº¦ææ° â ä»·æ ¼èµ°å¿ Ã è¡å§è®¨è®ºç­åº¦</div>
+  <div class="stock-badge" id="stockBadge">601838 æé½é¶è¡</div>
 </div>
 
 <div class="main">
   <div class="card">
     <div class="card-head">
-      <h2>热度指数</h2>
-      <span class="update-time" id="updateTime">加载中...</span>
+      <h2>ç­åº¦ææ°</h2>
+      <span class="update-time" id="updateTime">å è½½ä¸­...</span>
     </div>
     <div class="legend-row">
       <div class="legend-item">
-        <span class="legend-dot buzz"></span> 热度指数 (0 – 273)
+        <span class="legend-dot buzz"></span> ç­åº¦ææ° (0 â 273)
       </div>
       <div class="legend-item">
-        <span class="legend-dot price"></span> 收盘价（虚线 = 非交易日沿用）
+        <span class="legend-dot price"></span> æ¶çä»·ï¼èçº¿ = éäº¤ææ¥æ²¿ç¨ï¼
       </div>
     </div>
     <div id="chart"></div>
   </div>
 
   <div class="card">
-    <div class="card-head"><h2>概览</h2></div>
+    <div class="card-head"><h2>æ¦è§</h2></div>
     <div class="stats" id="stats">
       <div class="empty-state">
         <span class="icon material-symbols-outlined">cloud_off</span>
-        暂无数据
+        ææ æ°æ®
       </div>
     </div>
   </div>
 </div>
 
 <div class="footer">
-  HeatIndex · 每日 00:00 自动更新 · Powered by GitHub Actions
+  HeatIndex Â· æ¯æ¥ 00:00 èªå¨æ´æ° Â· Powered by GitHub Actions
 </div>
 
 <script>
@@ -203,7 +203,7 @@
   if (data.updated) {
     const d = new Date(data.updated);
     document.getElementById('updateTime').textContent =
-      '更新于 ' + d.toLocaleString('zh-CN');
+      'æ´æ°äº ' + d.toLocaleString('zh-CN');
   }
 
   const records = data.records || [];
@@ -212,29 +212,13 @@
   const dates = records.map(r => r.date);
   const buzz = records.map(r => r.buzz_index ?? null);
 
-  // ── 价格数据：data[i].lineStyle 控制 i→i+1 这段线的样式 ──
-  const priceData = records.map((r, i) => {
-    const item = { value: r.close ?? null };
-    const next = i + 1 < records.length ? records[i + 1] : null;
-    const curIsTrading = r.is_trading;
-    const nextIsNT = next && !next.is_trading;
+  // ââ ä»·æ ¼ï¼ä¸¤ä¸ªç³»åå å±å®ç°èçº¿ç¼ºå£ ââ
+  // åºå±èçº¿ï¼å¨é¨ç¹ä½ï¼å«éäº¤ææ¥å»¶ç»­ï¼ï¼æ åç¹
+  const dashedPrice = records.map(r => r.close ?? null);
+  // ä¸å±å®çº¿ï¼ä»äº¤ææ¥æå¼ï¼éäº¤ææ¥ null â connectNulls:false èªç¶æ­å¼
+  const solidPrice = records.map(r => r.is_trading ? (r.close ?? null) : null);
 
-    if (!curIsTrading) {
-      // 非交易日：无圆点，下一段虚线（延续上日价格）
-      item.lineStyle = { type: 'dashed', width: 1.5, dashOffset: 0 };
-      item.symbol = 'none';
-      item.symbolSize = 0;
-    } else if (nextIsNT) {
-      // 交易日且下一天是非交易日 → i→i+1 虚线
-      item.lineStyle = { type: 'dashed', width: 1.5, dashOffset: 0 };
-    } else if (curIsTrading && !nextIsNT && next) {
-      // 交易日且下一天也是交易日 → 实线
-      item.lineStyle = { type: 'solid' };
-    }
-    return item;
-  });
-
-  // ── 概览统计 ──
+  // ââ æ¦è§ç»è®¡ ââ
   const latestTrading = [...records].reverse().find(r => r.is_trading) || records[records.length - 1];
   const prevTrading = records.filter(r => r.is_trading).slice(-2);
   const latest = latestTrading;
@@ -246,21 +230,21 @@
   const priceChangePct = prevPrice ? ((priceChange / prevPrice) * 100) : 0;
 
   function buzzLevel(v) {
-    if (v >= 200) return '极度狂热';
-    if (v >= 150) return '高度关注';
-    if (v >= 100) return '升温中';
-    if (v >= 50)  return '正常';
-    return '冷清';
+    if (v >= 200) return 'æåº¦çç­';
+    if (v >= 150) return 'é«åº¦å³æ³¨';
+    if (v >= 100) return 'åæ¸©ä¸­';
+    if (v >= 50)  return 'æ­£å¸¸';
+    return 'å·æ¸';
   }
 
   document.getElementById('stats').innerHTML = `
     <div class="stat-box">
-      <div class="label">热度指数</div>
+      <div class="label">ç­åº¦ææ°</div>
       <div class="value buzz">${latestBuzz}</div>
       <div class="change" style="color:#7C4DFF">${buzzLevel(latestBuzz)}</div>
     </div>
     <div class="stat-box">
-      <div class="label">收盘价</div>
+      <div class="label">æ¶çä»·</div>
       <div class="value">${latestPrice.toFixed(2)}</div>
       <div class="change ${priceChange >= 0 ? 'up' : 'down'}">
         ${priceChange >= 0 ? '+' : ''}${priceChange.toFixed(2)}
@@ -268,20 +252,20 @@
       </div>
     </div>
     <div class="stat-box">
-      <div class="label">最高价</div>
+      <div class="label">æé«ä»·</div>
       <div class="value">${(latest.high ?? latestPrice).toFixed(2)}</div>
     </div>
     <div class="stat-box">
-      <div class="label">最低价</div>
+      <div class="label">æä½ä»·</div>
       <div class="value">${(latest.low ?? latestPrice).toFixed(2)}</div>
     </div>
     <div class="stat-box">
-      <div class="label">成交量</div>
-      <div class="value">${((latest.volume ?? 0) / 10000).toFixed(0)}<span style="font-size:14px;color:#9E9E9E">万手</span></div>
+      <div class="label">æäº¤é</div>
+      <div class="value">${((latest.volume ?? 0) / 10000).toFixed(0)}<span style="font-size:14px;color:#9E9E9E">ä¸æ</span></div>
     </div>
   `;
 
-  // ── 标记非交易日（周六日浅色背景） ──
+  // ââ æ è®°éäº¤ææ¥ï¼å¨å­æ¥æµè²èæ¯ï¼ ââ
   const weekendMarks = [];
   records.forEach((r, i) => {
     const d = new Date(r.date);
@@ -294,7 +278,7 @@
     }
   });
 
-  // ── 折线图 ──
+  // ââ æçº¿å¾ ââ
   const chart = echarts.init(document.getElementById('chart'));
 
   chart.setOption({
@@ -309,15 +293,15 @@
         params.forEach(p => {
           const val = p.value && typeof p.value === 'object' ? p.value.value : p.value;
           if (val == null) return;
-          if (p.seriesName === '热度指数') {
+          if (p.seriesName === 'ç­åº¦ææ°') {
             s += '<span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:#7C4DFF;margin-right:6px;"></span>';
-            s += '热度指数：<b style="color:#7C4DFF">' + val + '</b>';
-            if (!rec.is_trading) s += ' <span style="color:#9E9E9E;font-size:11px">(非交易日)</span>';
+            s += 'ç­åº¦ææ°ï¼<b style="color:#7C4DFF">' + val + '</b>';
+            if (!rec.is_trading) s += ' <span style="color:#9E9E9E;font-size:11px">(éäº¤ææ¥)</span>';
             s += '<br/>';
           } else {
             s += '<span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:#9E9E9E;margin-right:6px;"></span>';
-            s += '收盘价：<b>' + val.toFixed(2) + '</b>';
-            if (!rec.is_trading) s += ' <span style="color:#9E9E9E;font-size:11px">(沿用上日)</span>';
+            s += 'æ¶çä»·ï¼<b>' + val.toFixed(2) + '</b>';
+            if (!rec.is_trading) s += ' <span style="color:#9E9E9E;font-size:11px">(æ²¿ç¨ä¸æ¥)</span>';
           }
         });
         return s;
@@ -343,7 +327,7 @@
     yAxis: [
       {
         type: 'value',
-        name: '热度指数',
+        name: 'ç­åº¦ææ°',
         nameTextStyle: { color: '#7C4DFF', fontSize: 12, padding: [0, 0, 0, 0] },
         nameGap: 12,
         min: 0,
@@ -356,7 +340,7 @@
       },
       {
         type: 'value',
-        name: '收盘价',
+        name: 'æ¶çä»·',
         nameTextStyle: { color: '#9E9E9E', fontSize: 12, padding: [0, 0, 0, 0] },
         nameGap: 12,
         axisLine: { show: false },
@@ -372,7 +356,7 @@
     ],
     series: [
       {
-        name: '热度指数',
+        name: 'ç­åº¦ææ°',
         type: 'line',
         yAxisIndex: 0,
         data: buzz,
@@ -389,14 +373,25 @@
         },
       },
       {
-        name: '收盘价',
+        name: 'æ¶çä»·ï¼èçº¿ï¼',
         type: 'line',
         yAxisIndex: 1,
-        data: priceData,
+        data: dashedPrice,
+        smooth: 0.4,
+        symbol: 'none',
+        lineStyle: { color: '#BDBDBD', width: 1.5, type: 'dashed' },
+        itemStyle: { color: '#BDBDBD' },
+      },
+      {
+        name: 'æ¶çä»·',
+        type: 'line',
+        yAxisIndex: 1,
+        data: solidPrice,
+        connectNulls: false,
         smooth: 0.4,
         symbol: 'circle',
         symbolSize: 3,
-        lineStyle: { color: '#BDBDBD', width: 2 },
+        lineStyle: { color: '#BDBDBD', width: 2, type: 'solid' },
         itemStyle: { color: '#BDBDBD' },
       },
     ],
