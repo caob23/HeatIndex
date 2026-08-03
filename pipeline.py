@@ -342,10 +342,9 @@ def calc_buzz_index(total_score: float, max_raw_score: float,
 
 
 def calc_slopes(records: list[dict]):
-    """为每个交易日计算 5 日滚动线性回归斜率。
-    对每个交易日，取最近 5 个交易日（含当日）的收盘价做线性回归，
+    """为每个交易日计算 1 日涨跌（当日收盘 - 前日收盘）。
     斜率追加到 record["slope"]；非交易日设为 None。
-    x = [0, 1, 2, 3, 4]，y = 收盘价。
+    首个交易日无前日数据，slope 为 None。
     """
     # 收集所有交易日索引
     trading_indices = [i for i, r in enumerate(records) if r["is_trading"]]
@@ -353,8 +352,8 @@ def calc_slopes(records: list[dict]):
     for idx in trading_indices:
         # 找到当前交易日在此列表中的位置
         pos = trading_indices.index(idx)
-        # 取最近 5 个交易日（含当前）
-        start_pos = max(0, pos - 4)
+        # 取当前和前一个交易日（仅 2 点，窗口=1）
+        start_pos = max(0, pos - 1)
         window = trading_indices[start_pos:pos + 1]
 
         if len(window) < 2:

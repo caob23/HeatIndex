@@ -201,6 +201,34 @@
   .change-up { color: #E53935; }
   .change-down { color: #43A047; }
 
+  /* ── 今日行情 ── */
+  .today-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap: 12px;
+  }
+  .today-box {
+    background: #FFF8F0;
+    border-radius: 12px;
+    padding: 14px 16px;
+    text-align: center;
+  }
+  .today-box .label {
+    font-size: 11px;
+    color: #9E9E9E;
+    margin-bottom: 4px;
+  }
+  .today-box .value {
+    font-size: 22px;
+    font-weight: 500;
+    color: #212121;
+  }
+  .today-box .sub {
+    font-size: 11px;
+    color: #9E9E9E;
+    margin-top: 2px;
+  }
+
   /* ── 热度阈值图例 ── */
   .threshold-bar {
     display: flex;
@@ -369,6 +397,12 @@
     </div>
   </div>
 
+  <!-- 今日行情 -->
+  <div class="card" id="todayCard" style="display:none">
+    <div class="card-head"><h2>今日行情 <span style="font-size:11px;color:#FF6B35;font-weight:normal" id="todayTag"></span></h2><span class="update-time" id="todayTime"></span></div>
+    <div class="today-grid" id="todayGrid"></div>
+  </div>
+
   <!-- 纳斯达克数据表 -->
   <div class="card">
     <div class="card-head">
@@ -385,7 +419,7 @@
 </div>
 
 <div class="footer">
-  <a href="https://github.com/caob23/HeatIndex" target="_blank" style="color:#1976D2;text-decoration:none;font-weight:500">HeatIndex</a> · 每日 00:00 自动更新 · Powered by GitHub Actions
+  <a href="https://github.com/caob23/HeatIndex" target="_blank" style="color:#1976D2;text-decoration:none;font-weight:500">HeatIndex</a> · 交易日内 10:00/14:00/16:00 自动更新 · Powered by GitHub Actions
 </div>
 
 <script>
@@ -475,7 +509,7 @@
         <div class="value volume">${((latest.volume ?? 0) / 10000).toFixed(0)}</div>
       </div>
       <div class="stat-box">
-        <div class="label">5日斜率</div>
+        <div class="label">日涨跌</div>
         <div class="value slope">${latestSlope != null ? latestSlope.toFixed(4) : '—'}</div>
       </div>
       <div class="stat-box">
@@ -488,6 +522,29 @@
         <div class="change" style="color:#9E9E9E">条</div>
       </div>
     `;
+
+    // ══════════════════════════════════════
+    // 今日行情
+    // ══════════════════════════════════════
+    const today = new Date().toISOString().slice(0, 10);
+    const todayRecord = records.length && records[records.length - 1].date === today
+      ? records[records.length - 1] : null;
+    if (todayRecord && todayRecord.is_trading) {
+      const todayOpen = todayRecord.open ?? todayRecord.close;
+      const todayVol = todayRecord.volume ?? 0;
+      const todayBuzz = todayRecord.buzz_index;
+      const blT = buzzLevel(todayBuzz);
+      const isLive = new Date().getHours() < 16 || (new Date().getHours() === 16 && new Date().getMinutes() < 30);
+      const tag = isLive ? '(盘中)' : '(已收盘)';
+      document.getElementById('todayCard').style.display = 'block';
+      document.getElementById('todayTag').textContent = tag;
+      document.getElementById('todayTime').textContent = '更新时间: ' + data.updated;
+      document.getElementById('todayGrid').innerHTML =
+        '<div class="today-box"><div class="label">开盘价</div><div class="value">' + todayOpen.toFixed(3) + '</div></div>' +
+        '<div class="today-box"><div class="label">最新价</div><div class="value">' + todayRecord.close.toFixed(3) + '</div></div>' +
+        '<div class="today-box"><div class="label">成交量(手)</div><div class="value" style="color:#43A047">' + (todayVol / 100).toFixed(0) + '</div></div>' +
+        '<div class="today-box"><div class="label">热度指数</div><div class="value" style="color:#FF6B35">' + (todayBuzz != null ? todayBuzz : '—') + '</div><div class="sub">' + (todayBuzz != null ? blT.label : '') + '</div></div>';
+    }
 
     // ══════════════════════════════════════
     // 图表数据
@@ -616,9 +673,9 @@
               } else if (p.seriesName === '成交量(手)') {
                 s += '<span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:#43A047;margin-right:6px;"></span>';
                 s += '成交量：<b>' + val.toFixed(0) + ' 手</b>';
-              } else if (p.seriesName === '价格斜率(5日)') {
+              } else if (p.seriesName === '日涨跌') {
                 s += '<span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:#26A69A;margin-right:6px;"></span>';
-                s += '5日斜率：<b>' + val.toFixed(4) + '</b>';
+                s += '日涨跌：<b>' + val.toFixed(4) + '</b>';
               } else if (p.seriesName === '收盘价(对数)') {
                 s += '<span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:#AB47BC;margin-right:6px;"></span>';
                 s += '对数价格：<b>' + val.toFixed(4) + '</b>';
@@ -628,8 +685,8 @@
           }
         },
         legend: {
-          data: ['热度指数', '收盘价', '成交量(手)', '价格斜率(5日)', '收盘价(对数)'],
-          selected: { '成交量(手)': false, '价格斜率(5日)': false, '收盘价(对数)': false },
+          data: ['热度指数', '收盘价', '成交量(手)', '日涨跌', '收盘价(对数)'],
+          selected: { '成交量(手)': false, '日涨跌': false, '收盘价(对数)': false },
           top: 0,
           textStyle: { fontSize: 11, fontFamily: 'Microsoft YaHei' },
         },
@@ -769,6 +826,11 @@
                 { offset: 1, color: 'rgba(255, 107, 53, 0.01)' },
               ]),
             },
+            markLine: (function () {
+              const td = new Date().toISOString().slice(0, 10);
+              const inRange = td >= sliceDates[0] && td <= sliceDates[sliceDates.length - 1];
+              return inRange ? { silent: true, symbol: 'none', lineStyle: { color: '#FF6B35', type: 'dashed', width: 1.5, opacity: 0.7 }, label: { show: true, formatter: '今日', position: 'start', color: '#FF6B35', fontSize: 12 }, data: [{ xAxis: td }] } : {};
+            })(),
           },
           {
             name: '收盘价',
@@ -816,7 +878,7 @@
             },
           },
           {
-            name: '价格斜率(5日)',
+            name: '日涨跌',
             type: 'line',
             yAxisIndex: 3,
             data: sliceSlopeTrading,
