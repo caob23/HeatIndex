@@ -1,9 +1,10 @@
-name: Intraday Update
+name: Daily Update
 
 on:
   schedule:
-    # 每交易日 3 次: UTC 2:00(北京10:00) / 6:00(北京14:00) / 8:00(北京16:00)
-    - cron: '0 2,6,8 * * 1-5'
+    # 每交易日 2 次: UTC 20:00(北京次日 4:00) / 8:00(北京16:00)
+    - cron: '0 20 * * 0-4'
+    - cron: '0 8 * * 1-5'
   workflow_dispatch:
 
 jobs:
