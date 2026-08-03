@@ -13,6 +13,10 @@
 #
 #    You should have received a copy of the GNU Affero General Public License
 #    along with this program.  If not, see <https://www.gnu.org/licenses/>.
+#
+#    Contact Information:
+#    E-mail: caob2333@outlook.com
+#    Postal Address: Not available
 
 """HeatIndex Pipeline
 从 data/stocks.json 读取标的配置，从 data/heat_config.json 读取热度参数。

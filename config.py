@@ -13,6 +13,10 @@
 #
 #    You should have received a copy of the GNU Affero General Public License
 #    along with this program.  If not, see <https://www.gnu.org/licenses/>.
+#
+#    Contact Information:
+#    E-mail: caob2333@outlook.com
+#    Postal Address: Not available
 
 """HeatIndex 数据集 - 热度指数
 采集成都银行(601838)的每日价格 + 东方财富股吧讨论热度。
