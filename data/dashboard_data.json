@@ -7,21 +7,8 @@
     "scale_max": 100,
     "target_ceiling": 95
   },
-  "updated": "2026-08-30T20:10:07",
+  "updated": "2026-08-31T08:04:12",
   "records": [
-    {
-      "date": "2025-08-30",
-      "buzz_index": null,
-      "close": null,
-      "log_close": null,
-      "open": null,
-      "high": null,
-      "low": null,
-      "volume": null,
-      "amount": null,
-      "is_trading": false,
-      "slope_full": null
-    },
     {
       "date": "2025-08-31",
       "buzz_index": null,
@@ -4928,7 +4915,7 @@
     },
     {
       "date": "2026-08-25",
-      "buzz_index": 96.4,
+      "buzz_index": 96.5,
       "close": 1.643,
       "log_close": 0.4965,
       "open": 1.61,
@@ -4942,7 +4929,7 @@
     },
     {
       "date": "2026-08-26",
-      "buzz_index": 96.2,
+      "buzz_index": 96.3,
       "close": 1.646,
       "log_close": 0.4983,
       "open": 1.644,
@@ -4956,7 +4943,7 @@
     },
     {
       "date": "2026-08-27",
-      "buzz_index": 96.0,
+      "buzz_index": 96.3,
       "close": 1.663,
       "log_close": 0.5086,
       "open": 1.665,
@@ -4970,7 +4957,7 @@
     },
     {
       "date": "2026-08-28",
-      "buzz_index": 95.6,
+      "buzz_index": 95.9,
       "close": 1.661,
       "log_close": 0.5074,
       "open": 1.673,
@@ -4984,7 +4971,7 @@
     },
     {
       "date": "2026-08-29",
-      "buzz_index": 95.1,
+      "buzz_index": 95.4,
       "close": null,
       "log_close": null,
       "open": null,
@@ -4997,7 +4984,20 @@
     },
     {
       "date": "2026-08-30",
-      "buzz_index": 94.4,
+      "buzz_index": 94.8,
+      "close": null,
+      "log_close": null,
+      "open": null,
+      "high": null,
+      "low": null,
+      "volume": null,
+      "amount": null,
+      "is_trading": false,
+      "slope_full": -0.002
+    },
+    {
+      "date": "2026-08-31",
+      "buzz_index": 94.1,
       "close": null,
       "log_close": null,
       "open": null,
@@ -5009,5 +5009,5 @@
       "slope_full": -0.002
     }
   ],
-  "posts_count": 12594
+  "posts_count": 12763
 }
