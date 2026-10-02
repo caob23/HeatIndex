@@ -7,21 +7,8 @@
     "scale_max": 100,
     "target_ceiling": 95
   },
-  "updated": "2026-10-01T23:51:36",
+  "updated": "2026-10-02T14:20:03",
   "records": [
-    {
-      "date": "2025-10-01",
-      "buzz_index": null,
-      "close": null,
-      "log_close": null,
-      "open": null,
-      "high": null,
-      "low": null,
-      "volume": null,
-      "amount": null,
-      "is_trading": false,
-      "slope_full": null
-    },
     {
       "date": "2025-10-02",
       "buzz_index": null,
@@ -4038,7 +4025,7 @@
     },
     {
       "date": "2026-07-23",
-      "buzz_index": 80.7,
+      "buzz_index": 80.8,
       "close": 1.589,
       "log_close": 0.4631,
       "open": 1.597,
@@ -4408,7 +4395,7 @@
     },
     {
       "date": "2026-08-19",
-      "buzz_index": 94.6,
+      "buzz_index": 94.7,
       "close": 1.639,
       "log_close": 0.4941,
       "open": 1.65,
@@ -4929,7 +4916,7 @@
     },
     {
       "date": "2026-09-26",
-      "buzz_index": 95.0,
+      "buzz_index": 95.1,
       "close": null,
       "log_close": null,
       "open": null,
@@ -4942,7 +4929,7 @@
     },
     {
       "date": "2026-09-27",
-      "buzz_index": 94.4,
+      "buzz_index": 94.5,
       "close": null,
       "log_close": null,
       "open": null,
@@ -4969,7 +4956,7 @@
     },
     {
       "date": "2026-09-29",
-      "buzz_index": 94.3,
+      "buzz_index": 94.4,
       "close": 1.708,
       "log_close": 0.5353,
       "open": 1.692,
@@ -4983,7 +4970,7 @@
     },
     {
       "date": "2026-09-30",
-      "buzz_index": 94.0,
+      "buzz_index": 94.1,
       "close": 1.735,
       "log_close": 0.551,
       "open": 1.712,
@@ -4997,7 +4984,20 @@
     },
     {
       "date": "2026-10-01",
-      "buzz_index": 93.5,
+      "buzz_index": 93.7,
+      "close": null,
+      "log_close": null,
+      "open": null,
+      "high": null,
+      "low": null,
+      "volume": null,
+      "amount": null,
+      "is_trading": false,
+      "slope_full": 0.027
+    },
+    {
+      "date": "2026-10-02",
+      "buzz_index": 93.1,
       "close": null,
       "log_close": null,
       "open": null,
@@ -5009,5 +5009,5 @@
       "slope_full": 0.027
     }
   ],
-  "posts_count": 25983
+  "posts_count": 26198
 }
