@@ -7,7 +7,7 @@
     "scale_max": 100,
     "target_ceiling": 95
   },
-  "updated": "2026-10-06T14:37:46",
+  "updated": "2026-10-06T23:44:49",
   "records": [
     {
       "date": "2025-10-06",
@@ -4371,7 +4371,7 @@
     },
     {
       "date": "2026-08-21",
-      "buzz_index": 95.5,
+      "buzz_index": 95.6,
       "close": 1.635,
       "log_close": 0.4916,
       "open": 1.635,
@@ -4385,7 +4385,7 @@
     },
     {
       "date": "2026-08-22",
-      "buzz_index": 95.4,
+      "buzz_index": 95.5,
       "close": null,
       "log_close": null,
       "open": null,
@@ -4958,7 +4958,7 @@
     },
     {
       "date": "2026-10-03",
-      "buzz_index": 93.0,
+      "buzz_index": 93.1,
       "close": null,
       "log_close": null,
       "open": null,
@@ -4984,7 +4984,7 @@
     },
     {
       "date": "2026-10-05",
-      "buzz_index": 92.0,
+      "buzz_index": 92.1,
       "close": null,
       "log_close": null,
       "open": null,
@@ -4997,7 +4997,7 @@
     },
     {
       "date": "2026-10-06",
-      "buzz_index": 91.5,
+      "buzz_index": 91.7,
       "close": null,
       "log_close": null,
       "open": null,
@@ -5009,5 +5009,5 @@
       "slope_full": 0.027
     }
   ],
-  "posts_count": 27244
+  "posts_count": 27452
 }
